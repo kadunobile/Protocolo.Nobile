@@ -50,7 +50,11 @@ FASE 3: EXECUÇÃO (QUANDO O USUÁRIO ESCOLHER NO MENU)
 IMPORTANTE: Mantenha o tom consultivo e estratégico.
 """
 
-# --- 3. FUNÇÕES ---
+# --- 3. CONSTANTES ---
+MAX_CV_TEXT_FOR_TRIGGER = 4000  # Máximo de caracteres do CV enviados no trigger inicial
+P4_DETECTION_KEYWORDS = ["P4", "Onde você mora", "localização"]  # Keywords para detectar a pergunta P4
+
+# --- 4. FUNÇÕES ---
 def extract_text(file):
     try:
         with pdfplumber.open(file) as pdf:
@@ -135,116 +139,6 @@ def calculate_ats_score(cv_text, target_role, api_key):
         st.error(f"Erro no cálculo ATS: {e}")
         return None
 
-def render_questionnaire(detected_role):
-    """Renderiza o questionário estratégico com fulfill boxes"""
-    st.markdown("### 📋 Para traçarmos a estratégia, preencha as informações abaixo:")
-    st.markdown("---")
-
-    # P1: Objetivo de carreira
-    st.markdown("**P1: Qual é o seu principal objetivo de carreira neste momento?**")
-    p1_options = [
-        "Selecione uma opção...",
-        "Crescimento na empresa atual",
-        "Mudança de empresa (mesmo nível)",
-        "Promoção para cargo de liderança",
-        "Transição de carreira (nova área)",
-        "Recolocação no mercado",
-        "Oportunidades internacionais",
-        "Empreendedorismo/Consultoria"
-    ]
-    p1 = st.selectbox("", p1_options, key="p1_select", label_visibility="collapsed")
-
-    # P2: Cargos específicos (começando com o cargo atual/último)
-    st.markdown("**P2: Quais cargos específicos você está mirando?**")
-    st.caption(f"💼 Cargo atual/último identificado: **{detected_role}**")
-
-    p2_base_options = [detected_role] if detected_role and detected_role != "Profissional" else []
-    p2_additional = st.text_input("Outros cargos de interesse (separados por vírgula):",
-                                   placeholder="Ex: Gerente Comercial, Head of Sales")
-
-    # P3: Pretensão salarial
-    st.markdown("**P3: Qual é a sua pretensão salarial realista para o próximo passo?**")
-    p3_options = [
-        "Selecione uma opção...",
-        "Até R$ 5.000",
-        "R$ 5.000 - R$ 10.000",
-        "R$ 10.000 - R$ 15.000",
-        "R$ 15.000 - R$ 20.000",
-        "R$ 20.000 - R$ 30.000",
-        "R$ 30.000 - R$ 50.000",
-        "Acima de R$ 50.000",
-        "Prefiro não informar"
-    ]
-    p3 = st.selectbox("", p3_options, key="p3_select", label_visibility="collapsed")
-
-    # P4: Localização
-    st.markdown("**P4: Qual a sua localização preferencial para futuras oportunidades?**")
-    p4_options = [
-        "Selecione uma opção...",
-        "São Paulo - SP",
-        "Rio de Janeiro - RJ",
-        "Belo Horizonte - MG",
-        "Brasília - DF",
-        "Porto Alegre - RS",
-        "Curitiba - PR",
-        "Salvador - BA",
-        "Recife - PE",
-        "Fortaleza - CE",
-        "Remoto (Brasil)",
-        "Remoto (Internacional)",
-        "Híbrido",
-        "Aberto a relocação",
-        "Outra localização"
-    ]
-    p4 = st.selectbox("", p4_options, key="p4_select", label_visibility="collapsed")
-
-    # Campo adicional para "Outra localização"
-    p4_other = ""
-    if p4 == "Outra localização":
-        p4_other = st.text_input("Especifique a localização:", placeholder="Ex: Florianópolis - SC")
-
-    st.markdown("---")
-
-    # Botão de submissão
-    if st.button("✅ Confirmar Respostas", type="primary", use_container_width=True):
-        # Validação
-        if p1 == "Selecione uma opção...":
-            st.error("⚠️ Por favor, selecione seu objetivo de carreira (P1)")
-            return False
-        if not p2_additional and not p2_base_options:
-            st.error("⚠️ Por favor, informe ao menos um cargo de interesse (P2)")
-            return False
-        if p3 == "Selecione uma opção...":
-            st.error("⚠️ Por favor, selecione sua pretensão salarial (P3)")
-            return False
-        if p4 == "Selecione uma opção...":
-            st.error("⚠️ Por favor, selecione sua localização preferencial (P4)")
-            return False
-        if p4 == "Outra localização" and not p4_other:
-            st.error("⚠️ Por favor, especifique a localização")
-            return False
-
-        # Construir P2 completo
-        p2_list = p2_base_options.copy()
-        if p2_additional:
-            p2_list.extend([c.strip() for c in p2_additional.split(",") if c.strip()])
-        p2_final = ", ".join(p2_list)
-
-        # Ajustar P4 se "Outra localização"
-        p4_final = p4_other if p4 == "Outra localização" else p4
-
-        # Salvar respostas
-        st.session_state.questionnaire_answers = {
-            "P1": p1,
-            "P2": p2_final,
-            "P3": p3,
-            "P4": p4_final
-        }
-        st.session_state.questionnaire_completed = True
-        return True
-
-    return False
-
 # --- 4. CONTROLE DE ESTADO ---
 if "messages" not in st.session_state:
     st.session_state.messages = [{"role": "system", "content": SYSTEM_PROMPT}]
@@ -252,13 +146,6 @@ if "cv_content" not in st.session_state: st.session_state.cv_content = None
 if "fase_atual" not in st.session_state: st.session_state.fase_atual = "UPLOAD"
 if "ats_data" not in st.session_state: st.session_state.ats_data = None
 if "target_role" not in st.session_state: st.session_state.target_role = ""
-if "questionnaire_answers" not in st.session_state: st.session_state.questionnaire_answers = {
-    "P1": None,
-    "P2": None,
-    "P3": None,
-    "P4": None
-}
-if "questionnaire_completed" not in st.session_state: st.session_state.questionnaire_completed = False
 
 # --- 5. SIDEBAR ---
 with st.sidebar:
@@ -339,50 +226,27 @@ if not st.session_state.cv_content:
             ats_result = calculate_ats_score(text, detected_role, api_key)
             st.session_state.ats_data = ats_result
 
-            st.rerun()
-
-# FASE 2: QUESTIONÁRIO ESTRATÉGICO (após upload do CV)
-elif not st.session_state.questionnaire_completed:
-    # Detectar área macro para a introdução
-    area_macro = "Revenue Operations (RevOps) e Sales Operations" if "sales" in st.session_state.target_role.lower() or "vendas" in st.session_state.target_role.lower() or "comercial" in st.session_state.target_role.lower() else st.session_state.target_role
-
-    st.success(f"✅ CV carregado com sucesso!")
-    st.info(f"**Entendi. Atuarei como especialista em {area_macro}.**")
-
-    # Renderizar formulário com fulfill boxes
-    if render_questionnaire(st.session_state.target_role):
-        # Quando o questionário for completado
-        with st.spinner("Processando suas respostas..."):
-            # Preparar mensagem estruturada com as respostas
-            answers = st.session_state.questionnaire_answers
-            structured_response = f"""
-            O usuário completou o questionário estratégico. Aqui estão as respostas:
-
-            P1 (Objetivo de carreira): {answers['P1']}
-            P2 (Cargos específicos): {answers['P2']}
-            P3 (Pretensão salarial): {answers['P3']}
-            P4 (Localização): {answers['P4']}
-
-            AGORA, reconheça as respostas e libere o MENU de opções para o usuário.
-            """
-
-            st.session_state.messages.append({"role": "user", "content": structured_response})
+            # Força o início do Diagnóstico
+            trigger = f"O USUÁRIO SUBIU O CV: {text[:MAX_CV_TEXT_FOR_TRIGGER]}... INICIE A FASE 1 (DIAGNÓSTICO) AGORA."
+            st.session_state.messages.append({"role": "user", "content": trigger})
             reply = get_response(st.session_state.messages, api_key)
             st.session_state.messages.append({"role": "assistant", "content": reply})
-            st.session_state.fase_atual = "MENU"
             st.rerun()
 
-# FASE 3: CHAT INTERATIVO
+# FASE 2: CHAT INTERATIVO
 else:
     # Mostra histórico (ocultando prompts técnicos)
     for msg in st.session_state.messages:
-        if msg["role"] != "system" and "O USUÁRIO SUBIU" not in str(msg["content"]) and "ACIONOU" not in str(msg["content"]) and "completou o questionário estratégico" not in str(msg["content"]):
+        if msg["role"] != "system" and "O USUÁRIO SUBIU" not in str(msg["content"]) and "ACIONOU" not in str(msg["content"]):
             with st.chat_message(msg["role"]):
                 st.markdown(msg["content"])
 
     # Lógica Automática para detectar liberação do MENU
-    # Não é mais necessário detectar P4 porque o questionário é um formulário
-    # O MENU já é liberado automaticamente após o questionário ser completado
+    last_ai_msg = st.session_state.messages[-1]["content"] if st.session_state.messages else ""
+    if any(keyword in last_ai_msg for keyword in P4_DETECTION_KEYWORDS):
+        st.session_state.fase_atual = "DIAGNOSTICO_EM_ANDAMENTO"
+    elif st.session_state.fase_atual == "DIAGNOSTICO_EM_ANDAMENTO" and len(st.session_state.messages) > 4:
+        st.session_state.fase_atual = "MENU"
 
     # INPUT DO USUÁRIO
     user_input = st.chat_input("Sua resposta...")
