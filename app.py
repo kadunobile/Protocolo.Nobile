@@ -55,7 +55,7 @@ class CareerBrain:
             FOCO: Resultados de Negócio (ROI, EBITDA), Gestão de Pessoas, Estratégia, Governança e Visão de Longo Prazo.
             TOM: Exigente, sofisticado e focado em números. Rejeite listas de tarefas operacionais.
             CRITÉRIO ATS: Busca termos de gestão, liderança e impacto financeiro.
-            """"
+            """
 
     def analyze_full_profile(self, text, role, level):
         if not self.client:
