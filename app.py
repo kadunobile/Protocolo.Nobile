@@ -1,353 +1,218 @@
-"""
-Nobile Career Protocol - Main Streamlit Application
-Executive Career Strategy App with Dark Mode and OpenAI Integration
-"""
 import streamlit as st
-from PyPDF2 import PdfReader
-import config
-from engine import CareerEngine
+import openai
+import pdfplumber
+import pandas as pd
+from collections import Counter
+import re
 
-# Page Configuration
+# --- 1. CONFIGURAÇÃO VISUAL & CSS ---
 st.set_page_config(
-    page_title=config.APP_TITLE,
-    page_icon=config.APP_ICON,
+    page_title="Universal Career Protocol",
+    page_icon="🌐",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Dark Mode CSS
+# Estilo Limpo e Profissional
 st.markdown("""
-    <style>
-    /* Dark Mode Theme */
-    .stApp {
-        background-color: #0e1117;
-        color: #fafafa;
+<style>
+    .stApp { background-color: #0E1117; color: #E6E6E6; }
+    h1, h2, h3 { font-family: 'Segoe UI', sans-serif; font-weight: 600; }
+    .stButton>button { 
+        width: 100%; border-radius: 6px; height: 45px; 
+        font-weight: bold; background-color: #2563EB; color: white; border: none;
     }
-    
-    /* Sidebar Styling */
-    [data-testid="stSidebar"] {
-        background-color: #262730;
-    }
-    
-    /* Headers */
-    h1, h2, h3 {
-        color: #fafafa;
-    }
-    
-    /* Buttons */
-    .stButton>button {
-        background-color: #1f77b4;
-        color: white;
-        border-radius: 5px;
-        border: none;
-        padding: 0.5rem 1rem;
-        font-weight: 600;
-    }
-    
-    .stButton>button:hover {
-        background-color: #145a8a;
-        border: none;
-    }
-    
-    /* Text Input */
-    .stTextInput>div>div>input {
-        background-color: #262730;
-        color: #fafafa;
-    }
-    
-    /* File Uploader */
-    [data-testid="stFileUploader"] {
-        background-color: #262730;
-        border-radius: 5px;
-        padding: 1rem;
-    }
-    
-    /* Success/Error/Warning boxes */
-    .stSuccess, .stError, .stWarning, .stInfo {
-        background-color: #262730;
-        border-radius: 5px;
-    }
-    
-    /* Expander */
-    .streamlit-expanderHeader {
-        background-color: #262730;
-        border-radius: 5px;
-    }
-    </style>
+    .stButton>button:hover { background-color: #1D4ED8; }
+    .reportview-container .main .block-container { padding-top: 2rem; }
+    .stAlert { background-color: #1F2937; border: 1px solid #374151; color: #E5E7EB; }
+</style>
 """, unsafe_allow_html=True)
 
-# Initialize Session State
-def init_session_state():
-    """Initialize all session state variables"""
-    for key in config.SESSION_KEYS.values():
-        if key not in st.session_state:
-            if key == config.SESSION_KEYS["conversation_history"]:
-                st.session_state[key] = []
-            else:
-                st.session_state[key] = None
+# --- 2. CLASSE DE INTELIGÊNCIA (O CÉREBRO DINÂMICO) ---
+class CareerBrain:
+    def __init__(self, api_key):
+        self.client = openai.OpenAI(api_key=api_key) if api_key else None
 
-# Initialize engine and session state
-init_session_state()
+    def get_persona(self, nivel):
+        """Define a personalidade da IA baseada na senioridade do usuário."""
+        if nivel == "Estágio / Junior / Trainee":
+            return """
+            ATUE COMO: Um Mentor de Carreira e Recrutador de Talentos Jovens.
+            FOCO: Identificar potencial de aprendizado (learning agility), formação acadêmica, projetos voluntários e soft skills (comunicação, proatividade).
+            TOM: Encorajador, educativo e focado em estruturação básica.
+            CRITÉRIO ATS: Valorize palavras-chave da formação e ferramentas básicas.
+            """
+        elif nivel == "Pleno / Sênior / Especialista":
+            return """
+            ATUE COMO: Um Recrutador Técnico Sênior e Headhunter Especializado.
+            FOCO: Domínio técnico (Hard Skills), consistência de carreira, projetos complexos entregues e resolução de problemas.
+            TOM: Profissional, direto e focado em competência técnica.
+            CRITÉRIO ATS: Exige densidade de palavras-chave técnicas e ferramentas específicas do cargo.
+            """
+        else:  # Executivo / C-Level
+            return """
+            ATUE COMO: Um Headhunter Executivo de Retained Search (Korn Ferry/Egon Zehnder).
+            FOCO: Resultados de Negócio (ROI, EBITDA), Gestão de Pessoas, Estratégia, Governança e Visão de Longo Prazo.
+            TOM: Exigente, sofisticado e focado em números. Rejeite listas de tarefas operacionais.
+            CRITÉRIO ATS: Busca termos de gestão, liderança e impacto financeiro.
+            """"
 
-try:
-    engine = CareerEngine()
-    engine_available = True
-except ValueError as e:
-    engine_available = False
-    st.error(f"⚠️ {str(e)}")
-
-# Main Title
-st.title(f"{config.APP_ICON} {config.APP_TITLE}")
-st.markdown("### Estratégia de Carreira Executiva com IA")
-st.markdown("---")
-
-# Sidebar Navigation
-with st.sidebar:
-    st.header("🎯 Comandos")
-    st.markdown("---")
-    
-    # Command Selection
-    selected_command = st.radio(
-        "Selecione uma função:",
-        options=list(config.SIDEBAR_COMMANDS.keys()),
-        format_func=lambda x: config.SIDEBAR_COMMANDS[x],
-        key="command_selector"
-    )
-    
-    st.markdown("---")
-    
-    # Status Information
-    st.subheader("📊 Status")
-    
-    # PDF Upload Status
-    pdf_status = "✅" if st.session_state[config.SESSION_KEYS["pdf_uploaded"]] else "⏳"
-    st.text(f"{pdf_status} PDF Carregado")
-    
-    # Diagnosis Status
-    diagnosis_status = "✅" if st.session_state[config.SESSION_KEYS["diagnosis_complete"]] else "⏳"
-    st.text(f"{diagnosis_status} Diagnóstico")
-    
-    # ATS Score Status
-    ats_status = "✅" if st.session_state[config.SESSION_KEYS["ats_score"]] else "⏳"
-    st.text(f"{ats_status} Score ATS")
-    
-    st.markdown("---")
-    
-    # Reset button
-    if st.button("🔄 Resetar Sessão"):
-        for key in list(st.session_state.keys()):
-            del st.session_state[key]
-        st.rerun()
-
-# Main Content Area based on selected command
-if not engine_available:
-    st.warning("⚠️ Configure a OPENAI_API_KEY no arquivo .env para usar o aplicativo.")
-    st.info("1. Copie o arquivo .env.example para .env\n2. Adicione sua chave da OpenAI\n3. Reinicie o aplicativo")
-
-elif selected_command == "upload_pdf":
-    st.header("📄 Upload do Currículo")
-    st.markdown("Faça upload do seu currículo em formato PDF para análise.")
-    
-    uploaded_file = st.file_uploader(
-        "Escolha um arquivo PDF",
-        type="pdf",
-        help="Carregue seu currículo executivo em PDF"
-    )
-    
-    if uploaded_file is not None:
+    def analyze_full_profile(self, text, role, level):
+        if not self.client:
+            return "Erro: Sem API Key."
+        
+        persona = self.get_persona(level)
+        
+        prompt = f"""
+        {persona}
+        
+        ANALISE ESTE CURRÍCULO PARA A VAGA DE: {role}
+        NÍVEL ESPERADO: {level}
+        
+        TEXTO DO CV:
+        {text[:3000]}
+        
+        RETORNE UMA ANÁLISE ESTRUTURADA EM MARKDOWN:
+        1. **Diagnóstico Geral (Nota 0-100):** Dê uma nota realista para o nível {level}.
+        2. **O Que Falta (GAP Analysis):** Liste 3 pontos críticos que impediriam a contratação.
+        3. **Palavras-Chave Ausentes:** Liste 5 keywords essenciais para {role} que não foram encontradas ou estão fracas.
+        4. **Sugestão de Resumo:** Reescreva o parágrafo "Sobre/Resumo" para ser perfeito para a vaga.
+        """
+        
         try:
-            # Read PDF
-            pdf_reader = PdfReader(uploaded_file)
-            text = ""
-            for page in pdf_reader.pages:
-                text += page.extract_text()
-            
-            st.session_state[config.SESSION_KEYS["pdf_content"]] = text
-            st.session_state[config.SESSION_KEYS["pdf_uploaded"]] = True
-            
-            st.success("✅ PDF carregado com sucesso!")
-            
-            # Show preview
-            with st.expander("👁️ Visualizar conteúdo extraído"):
-                st.text_area("Texto extraído:", text, height=300)
-            
-            # Extract structured info
-            if st.button("🔍 Extrair Informações Estruturadas"):
-                with st.spinner("Processando..."):
-                    structured_info = engine.extract_pdf_info(text)
-                    st.markdown("### 📋 Informações Estruturadas")
-                    st.markdown(structured_info)
-                    
-        except Exception as e:
-            st.error(f"❌ Erro ao processar PDF: {str(e)}")
-
-elif selected_command == "diagnosis":
-    st.header("🔍 Diagnóstico Executivo")
-    st.markdown("**Obrigatório:** Complete o diagnóstico para acessar outras funcionalidades.")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        position = st.text_input(
-            "Cargo Atual",
-            value=st.session_state[config.SESSION_KEYS["current_position"]] or "",
-            placeholder="Ex: CEO, CFO, Diretor Executivo"
-        )
-    
-    with col2:
-        salary = st.number_input(
-            "Salário Mensal (R$)",
-            min_value=0.0,
-            value=float(st.session_state[config.SESSION_KEYS["current_salary"]] or 0.0),
-            step=1000.0,
-            format="%.2f"
-        )
-    
-    if st.button("🚀 Gerar Diagnóstico"):
-        if not position or salary <= 0:
-            st.error("❌ Por favor, preencha todos os campos.")
-        else:
-            # Validate executive profile
-            validation = engine.validate_executive_profile(position, salary)
-            
-            if not validation["is_valid"]:
-                st.error(f"❌ {validation['message']}")
-                st.info(f"💡 Este protocolo é destinado a executivos com salário acima de R$ {config.MIN_SALARY_REQUIREMENT:,.2f}")
-            else:
-                st.success(f"✅ {validation['message']}")
-                
-                with st.spinner("Gerando diagnóstico executivo..."):
-                    diagnosis = engine.generate_diagnosis(position, salary)
-                    
-                    # Save to session state
-                    st.session_state[config.SESSION_KEYS["current_position"]] = position
-                    st.session_state[config.SESSION_KEYS["current_salary"]] = salary
-                    st.session_state[config.SESSION_KEYS["diagnosis_complete"]] = diagnosis
-                    
-                    # Display diagnosis
-                    st.markdown("### 📊 Diagnóstico Executivo")
-                    st.markdown(diagnosis)
-    
-    # Show existing diagnosis if available
-    if st.session_state[config.SESSION_KEYS["diagnosis_complete"]]:
-        st.markdown("---")
-        st.markdown("### 📊 Diagnóstico Atual")
-        st.info(f"**Cargo:** {st.session_state[config.SESSION_KEYS['current_position']]}")
-        st.info(f"**Salário:** R$ {st.session_state[config.SESSION_KEYS['current_salary']]:,.2f}")
-        with st.expander("Ver diagnóstico completo"):
-            st.markdown(st.session_state[config.SESSION_KEYS["diagnosis_complete"]])
-
-elif selected_command == "ats_score":
-    st.header("📊 Calculadora de Score ATS")
-    st.markdown("Analise seu currículo e obtenha um score ATS profissional.")
-    
-    if st.session_state[config.SESSION_KEYS["pdf_uploaded"]] is not True:
-        st.warning("⚠️ Por favor, faça upload do seu PDF primeiro.")
-    else:
-        if st.button("📈 Calcular Score ATS"):
-            with st.spinner("Analisando currículo..."):
-                result = engine.calculate_ats_score(
-                    st.session_state[config.SESSION_KEYS["pdf_content"]]
-                )
-                
-                st.session_state[config.SESSION_KEYS["ats_score"]] = result
-                
-                st.markdown("### 🎯 Resultado da Análise ATS")
-                st.markdown(result["analysis"])
-        
-        # Show existing score if available
-        if st.session_state[config.SESSION_KEYS["ats_score"]]:
-            st.markdown("---")
-            st.markdown("### 📊 Score ATS Atual")
-            with st.expander("Ver análise completa"):
-                st.markdown(st.session_state[config.SESSION_KEYS["ats_score"]]["analysis"])
-
-elif selected_command == "metrics_interrogation":
-    st.header("💼 Interrogatório de Métricas")
-    st.markdown("Sessão interativa de perguntas sobre suas métricas e resultados executivos.")
-    
-    if not st.session_state[config.SESSION_KEYS["diagnosis_complete"]]:
-        st.warning("⚠️ Por favor, complete o diagnóstico executivo primeiro.")
-    else:
-        position = st.session_state[config.SESSION_KEYS["current_position"]]
-        
-        st.info(f"💼 **Cargo em análise:** {position}")
-        
-        # Display conversation history
-        if st.session_state[config.SESSION_KEYS["conversation_history"]]:
-            st.markdown("### 💬 Histórico da Conversa")
-            for msg in st.session_state[config.SESSION_KEYS["conversation_history"]]:
-                if msg["role"] == "assistant":
-                    st.markdown(f"**🤖 Interrogador:** {msg['content']}")
-                elif msg["role"] == "user":
-                    st.markdown(f"**👤 Você:** {msg['content']}")
-            st.markdown("---")
-        
-        # Start or continue interrogation
-        if not st.session_state[config.SESSION_KEYS["conversation_history"]]:
-            if st.button("🎯 Iniciar Interrogatório"):
-                with st.spinner("Preparando primeira pergunta..."):
-                    first_question = engine.conduct_metrics_interrogation(
-                        position=position,
-                        context="Início da sessão de interrogatório de métricas",
-                        conversation_history=None
-                    )
-                    
-                    st.session_state[config.SESSION_KEYS["conversation_history"]].append({
-                        "role": "assistant",
-                        "content": first_question
-                    })
-                    st.rerun()
-        else:
-            # Show latest question
-            latest_msg = st.session_state[config.SESSION_KEYS["conversation_history"]][-1]
-            if latest_msg["role"] == "assistant":
-                st.markdown("### 🤖 Pergunta Atual:")
-                st.info(latest_msg["content"])
-            
-            # User response
-            user_response = st.text_area(
-                "Sua resposta:",
-                placeholder="Digite sua resposta com métricas e resultados quantificáveis...",
-                height=150
+            response = self.client.chat.completions.create(
+                model="gpt-4o",  # Ou gpt-4-turbo
+                messages=[
+                    {"role": "system", "content": "Você é um assistente de carreira expert."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.4
             )
-            
-            col1, col2 = st.columns([1, 4])
-            with col1:
-                if st.button("📤 Enviar Resposta"):
-                    if user_response:
-                        # Add user response to history
-                        st.session_state[config.SESSION_KEYS["conversation_history"]].append({
-                            "role": "user",
-                            "content": user_response
-                        })
-                        
-                        # Get next question
-                        with st.spinner("Processando resposta..."):
-                            next_question = engine.conduct_metrics_interrogation(
-                                position=position,
-                                context="Continuação do interrogatório",
-                                conversation_history=st.session_state[config.SESSION_KEYS["conversation_history"]]
-                            )
-                            
-                            st.session_state[config.SESSION_KEYS["conversation_history"]].append({
-                                "role": "assistant",
-                                "content": next_question
-                            })
-                            st.rerun()
-            
-            with col2:
-                if st.button("🔄 Reiniciar Interrogatório"):
-                    st.session_state[config.SESSION_KEYS["conversation_history"]] = []
-                    st.rerun()
+            return response.choices[0].message.content
+        except Exception as e:
+            return f"Erro na IA: {e}"
 
-# Footer
-st.markdown("---")
-st.markdown(
-    """
-    <div style='text-align: center; color: #666;'>
-        <p>🎯 Nobile Career Protocol | Powered by OpenAI GPT</p>
-    </div>
-    """,
-    unsafe_allow_html=True
+    def rewrite_experience(self, bullet_point, role, level):
+        if not self.client:
+            return "Erro: Sem API Key."
+        
+        persona = self.get_persona(level)
+        prompt = f"""
+        {persona}
+        TAREFA: Reescreva esta experiência do CV para torná-la mais atrativa para uma vaga de {role}.
+        TEXTO ORIGINAL: "{bullet_point}"
+        
+        REGRA:
+        - Se for Junior: Destaque o aprendizado e a colaboração.
+        - Se for Sênior: Destaque a autonomia e a complexidade técnica.
+        - Se for Executivo: Destaque o impacto financeiro/estratégico.
+        
+        SAÍDA: Apenas a frase reescrita, sem explicações.
+        """
+        response = self.client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.5
+        )
+        return response.choices[0].message.content
+
+# --- 3. FUNÇÕES AUXILIARES (LOCAIS) ---
+def extract_pdf_text(file):
+    try:
+        with pdfplumber.open(file) as pdf:
+            return "\n".join([p.extract_text() for p in pdf.pages if p.extract_text()])
+    except Exception:
+        return ""
+
+def get_top_words(text, n=10):
+    # Simples contagem de palavras para dar um dado "duro" ao usuário
+    words = re.findall(r'\b[a-zA-Z]{4,}\b', text.lower())
+    stopwords = ['para', 'com', 'que', 'uma', 'como', 'pela', 'está', 'fazer', 'trabalho', 'experiência', 'profissional']
+    filtered = [w for w in words if w not in stopwords]
+    return pd.DataFrame(Counter(filtered).most_common(n), columns=['Palavra', 'Frequência'])
+
+# --- 4. INTERFACE DO USUÁRIO ---
+
+# Sidebar: Configuração
+st.sidebar.title("🧬 Universal Protocol")
+api_key = st.sidebar.text_input("OpenAI API Key", type="password")
+st.sidebar.markdown("---")
+
+st.sidebar.subheader("Calibragem da IA")
+nivel_senioridade = st.sidebar.select_slider(
+    "Qual o nível da vaga?",
+    options=["Estágio / Junior / Trainee", "Pleno / Sênior / Especialista", "Executivo / C-Level"]
 )
+cargo_alvo = st.sidebar.text_input("Cargo Alvo", value="Gerente de Projetos")
+
+# Main Area
+st.title("Otimizador de Currículo Universal")
+st.markdown(f"Configurado para nível: **{nivel_senioridade}** | Cargo: **{cargo_alvo}**")
+
+# Estado da Sessão
+if "cv_text" not in st.session_state:
+    st.session_state.cv_text = ""
+if "analise_feita" not in st.session_state:
+    st.session_state.analise_feita = None
+
+# Passo 1: Upload
+uploaded_file = st.file_uploader("Carregue seu CV (PDF)", type="pdf")
+
+if uploaded_file:
+    st.session_state.cv_text = extract_pdf_text(uploaded_file)
+    
+    # Exibe métricas rápidas (Sem gastar IA)
+    col1, col2 = st.columns([1, 2])
+    with col1:
+        st.info(f"✅ Leitura Concluída: {len(st.session_state.cv_text)} caracteres.")
+    with col2:
+        df_words = get_top_words(st.session_state.cv_text)
+        with st.expander("Ver palavras mais repetidas (Análise Fria)"):
+            st.dataframe(df_words, use_container_width=True)
+
+    # Passo 2: Ação da IA
+    if api_key:
+        brain = CareerBrain(api_key)
+        
+        tab_analise, tab_editor, tab_entrevista = st.tabs(["📊 Diagnóstico Completo", "✏️ Editor Assistido", "🎙️ Simulador"])
+        
+        with tab_analise:
+            if st.button("🚀 Rodar Análise Profunda (IA)"):
+                with st.spinner("A IA está lendo cada linha do seu CV..."): 
+                    analise = brain.analyze_full_profile(st.session_state.cv_text, cargo_alvo, nivel_senioridade)
+                    st.session_state.analise_feita = analise
+            
+            if st.session_state.analise_feita:
+                st.markdown(st.session_state.analise_feita)
+        
+        with tab_editor:
+            st.subheader("Reescrita Cirúrgica")
+            st.write("Copie um ponto do seu CV que você acha fraco. A IA vai reescrever baseada no seu nível.")
+            texto_original = st.text_area("Cole a frase aqui:", height=100)
+            if st.button("✨ Melhorar Frase"):
+                if texto_original:
+                    with st.spinner("Reescrevendo..."):
+                        nova_frase = brain.rewrite_experience(texto_original, cargo_alvo, nivel_senioridade)
+                        st.success("Sugestão:")
+                        st.code(nova_frase, language="markdown")
+        
+        with tab_entrevista:
+            st.subheader("Prepare-se para a Entrevista")
+            if st.button("Gerar Pergunta Desafiadora"):
+                prompt_entrevista = f"Crie uma pergunta de entrevista difícil para um candidato a {cargo_alvo} nível {nivel_senioridade}, baseada no fato de que o CV dele menciona: {st.session_state.cv_text[:500]}..."
+                
+                # Chamada direta simples para pergunta
+                try:
+                    q = brain.client.chat.completions.create(
+                        model="gpt-4o",
+                        messages=[{"role": "user", "content": prompt_entrevista}]
+                    ).choices[0].message.content
+                    st.info(f"🧑‍💼 Recrutador: {q}")
+                except Exception as e:
+                    st.error(f"Erro: {e}")
+    
+    else:
+        st.warning("⚠️ Insira a API Key na barra lateral para liberar as funções de IA.")
+
+else:
+    st.info("👆 Comece enviando seu arquivo PDF acima.")
