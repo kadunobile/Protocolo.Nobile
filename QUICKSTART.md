@@ -17,14 +17,16 @@ cd Protocolo.Nobile
 pip install -r requirements.txt
 ```
 
-### 3. Configure a API Key da OpenAI
+### 3. Configure a API Key da OpenAI (Opcional)
 ```bash
-# Copie o arquivo de exemplo
+# Opção 1: Usar arquivo .env (recomendado)
 cp .env.example .env
 
 # Edite o arquivo .env e adicione sua chave
 # OPENAI_API_KEY=sk-sua-chave-aqui
 ```
+
+**Nota**: Se você não criar o arquivo `.env`, a aplicação solicitará a API Key diretamente na interface da sidebar.
 
 ### 4. Execute o Aplicativo
 ```bash
@@ -110,10 +112,10 @@ def seu_novo_prompt(params) -> str:
 
 ## ❓ Problemas Comuns
 
-### "OPENAI_API_KEY not found"
-- ✅ Verifique se criou o arquivo `.env`
-- ✅ Verifique se adicionou a chave correta
-- ✅ Reinicie o aplicativo
+### "API Key não configurada"
+- ✅ Opção 1: Crie o arquivo `.env` e adicione sua chave OpenAI
+- ✅ Opção 2: Insira a chave diretamente na sidebar da aplicação
+- ✅ Reinicie o aplicativo se necessário
 
 ### "Salário abaixo do mínimo executivo"
 - ✅ O sistema requer salário mínimo de R$ 20.000
