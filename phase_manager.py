@@ -9,6 +9,21 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Import FSM constants from config
+try:
+    from config import (
+        FSM_MIN_MESSAGE_PAIRS_FOR_MENU,
+        FSM_MIN_AI_MESSAGES_FOR_DIAGNOSTICO_EM_ANDAMENTO,
+        FSM_TRIGGER_KEYWORDS,
+        FSM_COMMAND_KEYWORDS
+    )
+except ImportError:
+    # Fallback to defaults if config is not available
+    FSM_MIN_MESSAGE_PAIRS_FOR_MENU = 4
+    FSM_MIN_AI_MESSAGES_FOR_DIAGNOSTICO_EM_ANDAMENTO = 1
+    FSM_TRIGGER_KEYWORDS = ["O USUÁRIO SUBIU", "ACIONOU"]
+    FSM_COMMAND_KEYWORDS = ["ACIONOU", "/otimizador_cv_linkedin", "ETAPA 5: ARQUIVO MESTRE"]
+
 
 class Phase(Enum):
     """
@@ -30,8 +45,6 @@ class PhaseManager:
     def __init__(self):
         """Initialize the phase manager with UPLOAD phase"""
         self.current_phase = Phase.UPLOAD
-        self.message_count = 0
-        self.ai_message_count_after_diagnostico = 0
         self.cv_loaded = False
         
     def get_phase_value(self) -> str:
@@ -59,7 +72,8 @@ class PhaseManager:
             if msg.get("role") == "system":
                 continue
             content = str(msg.get("content", ""))
-            if "O USUÁRIO SUBIU" in content or "ACIONOU" in content:
+            # Use trigger keywords from config
+            if any(keyword in content for keyword in FSM_TRIGGER_KEYWORDS):
                 continue
             if msg.get("role") in ["user", "assistant"]:
                 count += 1
@@ -100,8 +114,8 @@ class PhaseManager:
                 if msg.get("role") == "assistant":
                     ai_count += 1
             
-            # Transition after at least 1 AI message in diagnostic phase
-            if ai_count >= 1:
+            # Use threshold from config
+            if ai_count >= FSM_MIN_AI_MESSAGES_FOR_DIAGNOSTICO_EM_ANDAMENTO:
                 self.current_phase = Phase.DIAGNOSTICO_EM_ANDAMENTO
                 logger.info("Phase transition: DIAGNOSTICO → DIAGNOSTICO_EM_ANDAMENTO (≥1 AI message)")
                 return True
@@ -120,8 +134,8 @@ class PhaseManager:
         if self.current_phase == Phase.DIAGNOSTICO_EM_ANDAMENTO and messages:
             pairs = self.count_user_ai_pairs(messages)
             
-            # Transition after 4 or more user-AI pairs (excluding triggers)
-            if pairs >= 4:
+            # Use threshold from config
+            if pairs >= FSM_MIN_MESSAGE_PAIRS_FOR_MENU:
                 self.current_phase = Phase.MENU
                 logger.info(f"Phase transition: DIAGNOSTICO_EM_ANDAMENTO → MENU ({pairs} message pairs)")
                 return True
@@ -138,9 +152,8 @@ class PhaseManager:
             bool: True if transition occurred
         """
         if self.current_phase == Phase.MENU:
-            # Detect command triggers (optimizer or skip to final)
-            trigger_keywords = ["ACIONOU", "/otimizador_cv_linkedin", "ETAPA 5: ARQUIVO MESTRE"]
-            if any(keyword in last_message_content for keyword in trigger_keywords):
+            # Use command keywords from config
+            if any(keyword in last_message_content for keyword in FSM_COMMAND_KEYWORDS):
                 self.current_phase = Phase.EXECUCAO
                 logger.info("Phase transition: MENU → EXECUCAO (command triggered)")
                 return True
@@ -178,7 +191,5 @@ class PhaseManager:
     def reset(self):
         """Reset the phase manager to initial state"""
         self.current_phase = Phase.UPLOAD
-        self.message_count = 0
-        self.ai_message_count_after_diagnostico = 0
         self.cv_loaded = False
         logger.info("Phase manager reset to UPLOAD")
