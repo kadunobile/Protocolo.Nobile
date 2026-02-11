@@ -175,6 +175,8 @@ class PhaseManager:
         ]
         
         # Verifica se houve troca suficiente de mensagens (pelo menos MIN_DIAGNOSTIC_EXCHANGES pares)
+        # Usa min() porque cada par requer uma mensagem user E uma mensagem assistant
+        # Exemplo: 4 user + 5 assistant = 4 pares completos (o 5º assistant não tem par)
         return (min(len(user_messages), len(assistant_messages)) >= MIN_DIAGNOSTIC_EXCHANGES)
     
     def should_transition_to_execucao(self, last_user_message: str) -> bool:
