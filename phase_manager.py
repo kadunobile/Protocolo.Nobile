@@ -183,8 +183,11 @@ class PhaseManager:
                 self.transition_to_menu(messages)
             
             elif self.current_phase == Phase.MENU and len(messages) > 0:
+                # Check if last message (from button click) contains a command trigger
+                # Note: This is primarily called explicitly from app.py when buttons are clicked
                 last_msg = messages[-1]
-                self.transition_to_execucao(str(last_msg.get("content", "")))
+                if last_msg.get("role") == "user":  # Only check user messages
+                    self.transition_to_execucao(str(last_msg.get("content", "")))
         
         return self.get_phase_value()
     

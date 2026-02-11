@@ -13,10 +13,12 @@ MAX_CV_TEXT_LENGTH_ATS = 3000  # Máximo de caracteres do CV para cálculo ATS
 FSM_MIN_MESSAGE_PAIRS_FOR_MENU = 4  # Mínimo de pares user-AI para liberar menu
 FSM_MIN_AI_MESSAGES_FOR_DIAGNOSTICO_EM_ANDAMENTO = 1  # Mínimo de mensagens AI após diagnóstico
 
-# Keywords para identificar triggers internos do sistema (não contam como interações do usuário)
+# Keywords para identificar mensagens automáticas do sistema que não devem contar como interações reais do usuário
+# Exemplo: "O USUÁRIO SUBIU o CV" e "ACIONOU comando" são triggers automáticos inseridos pelo sistema
 FSM_TRIGGER_KEYWORDS = ["O USUÁRIO SUBIU", "ACIONOU"]
 
-# Keywords para detectar comandos que acionam fase de execução
+# Keywords para detectar comandos que acionam a fase de execução
+# Nota: "ACIONOU" aparece em ambas as listas intencionalmente - marca mensagens que são triggers E podem iniciar execução
 FSM_COMMAND_KEYWORDS = ["ACIONOU", "/otimizador_cv_linkedin", "ETAPA 5: ARQUIVO MESTRE"]
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
