@@ -35,17 +35,21 @@ class AuditEngine:
         try:
             with pdfplumber.open(file) as pdf:
                 return "\n".join([p.extract_text() for p in pdf.pages if p.extract_text()])
-        except: return None
+        except Exception:
+            return None
 
     def generate_report(self, cv_text, target_role, target_salary, api_key):
         if not api_key: return None
         client = openai.OpenAI(api_key=api_key)
         
+        # Limit CV text to 3000 chars to stay within token limits and reduce API costs
+        MAX_CV_TEXT_LENGTH = 3000
+        
         # Prompt Analítico (Gera JSON puro)
         prompt = f"""
         ATUE COMO: Auditor de RH e Especialista em ATS.
         CONTEXTO:
-        - CV Texto: {cv_text[:3000]}
+        - CV Texto: {cv_text[:MAX_CV_TEXT_LENGTH]}
         - Cargo Alvo: {target_role}
         - Pretensão Salarial: {target_salary}
         
