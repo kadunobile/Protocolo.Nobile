@@ -25,7 +25,8 @@ if "phase_manager" not in st.session_state:
     # Inicializa PhaseManager com a fase atual se já existe, senão usa UPLOAD
     try:
         initial_phase = Phase(st.session_state.fase_atual)
-    except (ValueError, KeyError):
+    except ValueError:
+        # Se fase_atual tem valor inválido, reseta para UPLOAD
         initial_phase = Phase.UPLOAD
         st.session_state.fase_atual = "UPLOAD"
     st.session_state.phase_manager = PhaseManager(initial_phase)

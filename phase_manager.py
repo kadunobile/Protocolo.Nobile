@@ -37,6 +37,10 @@ class PhaseManager:
     """
     
     # Triggers de execução (constante de classe)
+    # Inclui múltiplos triggers porque as mensagens podem conter diferentes padrões:
+    # - COMMAND_TRIGGER_TEXT: "ACIONOU:" para comandos do menu
+    # - COMMAND_OTIMIZADOR_TEXT: "/otimizador" para detecção de nome de comando
+    # - COMMAND_ETAPA_TEXT: "ETAPA" para navegação entre etapas
     _EXECUTION_TRIGGERS = [COMMAND_TRIGGER_TEXT, COMMAND_OTIMIZADOR_TEXT, COMMAND_ETAPA_TEXT]
     
     def __init__(self, initial_phase: Phase = Phase.UPLOAD):
