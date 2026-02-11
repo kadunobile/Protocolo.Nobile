@@ -6,6 +6,7 @@ import openai
 import json
 import streamlit as st
 from config import MAX_CV_TEXT_LENGTH, MAX_CV_TEXT_LENGTH_ATS
+from prompts import PromptTemplates
 
 
 def get_response(messages, api_key):
@@ -50,14 +51,9 @@ def extract_role_from_cv(cv_text, api_key):
     
     client = openai.OpenAI(api_key=api_key)
 
-    prompt = f"""
-    Analise este CV e identifique o cargo/função principal da pessoa.
-
-    CV: {cv_text[:MAX_CV_TEXT_LENGTH]}
-
-    Retorne APENAS o nome do cargo/função (ex: "Gerente de Vendas", "Desenvolvedor Python", "Diretor Comercial").
-    Seja específico e conciso (máximo 4 palavras).
-    """
+    # Usa o prompt template do prompts.py
+    prompt = PromptTemplates.role_extraction_prompt(cv_text[:MAX_CV_TEXT_LENGTH])
+    
     try:
         response = client.chat.completions.create(
             model="gpt-4o",
@@ -88,26 +84,9 @@ def calculate_ats_score(cv_text, target_role, api_key):
     
     client = openai.OpenAI(api_key=api_key)
 
-    prompt = f"""
-    ATUE COMO: Auditor de RH e Especialista em ATS.
-    CONTEXTO:
-    - CV Texto: {cv_text[:MAX_CV_TEXT_LENGTH_ATS]}
-    - Cargo Alvo: {target_role}
-
-    TAREFA (Retorne JSON):
-    1. **ATS_Score**: Calcule a % de palavras-chave do cargo presentes no CV (0-100).
-    2. **Keywords_Present**: Liste 5-10 palavras-chave PRESENTES no CV.
-    3. **Keywords_Missing**: Liste 5-10 palavras-chave críticas que FALTAM.
-    4. **Recomendacoes**: Liste 3 recomendações curtas para melhorar o score.
-
-    FORMATO JSON OBRIGATÓRIO:
-    {{
-        "ats_score": 0,
-        "keywords_present": ["k1", "k2", "k3"],
-        "keywords_missing": ["k1", "k2", "k3"],
-        "recomendacoes": ["r1", "r2", "r3"]
-    }}
-    """
+    # Usa o prompt template do prompts.py
+    prompt = PromptTemplates.ats_score_prompt(cv_text[:MAX_CV_TEXT_LENGTH_ATS], target_role)
+    
     try:
         response = client.chat.completions.create(
             model="gpt-4o",
