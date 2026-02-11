@@ -76,14 +76,16 @@ cd Protocolo.Nobile
 pip install -r requirements.txt
 ```
 
-3. **Configure as variáveis de ambiente**
+3. **Configure as variáveis de ambiente (opcional)**
 ```bash
-# Copie o arquivo de exemplo
+# Opção 1: Usar arquivo .env (recomendado para desenvolvimento)
 cp .env.example .env
 
 # Edite o arquivo .env e adicione sua chave OpenAI
 # OPENAI_API_KEY=sk-sua-chave-aqui
 ```
+
+**Nota**: Se você não configurar o arquivo `.env`, a aplicação solicitará a API Key via interface da sidebar durante a execução.
 
 4. **Execute o aplicativo**
 ```bash

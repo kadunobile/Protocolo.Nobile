@@ -2,7 +2,12 @@
 Configuração e constantes da aplicação Nobile Career Strategy
 """
 
+import os
 import streamlit as st
+from dotenv import load_dotenv
+
+# Carregar variáveis de ambiente do arquivo .env
+load_dotenv()
 
 # --- CONSTANTES ---
 MAX_CV_TEXT_FOR_TRIGGER = 4000  # Máximo de caracteres do CV enviados no trigger inicial
@@ -44,3 +49,13 @@ def apply_custom_css():
         .stChatMessage[data-testid="user"] { background-color: #0d4a2b; }
     </style>
     """, unsafe_allow_html=True)
+
+# --- API KEY MANAGEMENT ---
+def get_api_key():
+    """
+    Obtém a API Key da OpenAI do ambiente ou retorna None
+    
+    Returns:
+        str or None: API Key se encontrada no .env, None caso contrário
+    """
+    return os.getenv("OPENAI_API_KEY")
