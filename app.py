@@ -3,32 +3,41 @@ import openai
 import pdfplumber
 import time
 
-# --- 1. CONFIGURAÇÃO VISUAL ---
-st.set_page_config(page_title="Nobile Career Protocol", page_icon="🦅", layout="wide")
+# --- 1. CONFIGURAÇÃO VISUAL (DARK MODE EXECUTIVO) ---
+st.set_page_config(page_title="Nobile Career Strategist", page_icon="🦁", layout="wide")
 
 st.markdown("""
 <style>
     .stApp { background-color: #0E1117; color: #E0E0E0; }
-    .stChatMessage { background-color: #262730; border-radius: 10px; padding: 10px; margin-bottom: 10px; }
-    .stButton>button { background: #00B4D8; color: white; border: none; font-weight: bold; }
+    .stChatMessage { background-color: #1F1F1F; border: 1px solid #333; border-radius: 8px; }
+    .stChatMessage[data-testid="stChatMessageUser"] { background-color: #0d4a2b; color: white; } /* Verde Escuro */
+    .stButton>button { background-color: #238636; color: white; font-weight: bold; width: 100%; border: 1px solid #2ea043; }
+    .stButton>button:hover { background-color: #2ea043; }
+    h1, h2, h3 { font-family: 'Helvetica', sans-serif; color: #58A6FF; }
+    .info-box { background-color: #161b22; padding: 15px; border-radius: 5px; border-left: 5px solid #d29922; margin-bottom: 20px; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. CÉREBRO DA IA (PERSONA HEADHUNTER) ---
+# --- 2. O ROTEIRO MESTRE (SEU SCRIPT EXATO) ---
+# Aqui garantimos que a IA siga SEU prompt linha por linha.
 SYSTEM_PROMPT = """
-VOCÊ É O "NOBILE CAREER PROTOCOL", UM HEADHUNTER EXECUTIVO DE ELITE.
-Sua missão não é apenas revisar texto, é ELEVAR o nível de senioridade do candidato.
+ATUE COMO UM HEADHUNTER E ESTRATEGISTA DE CARREIRA (VERSÃO ELITE GLOBAL).
+Role: Você é um Headhunter Executivo Sênior, Especialista em ATS, Salários, Carreira Internacional e LinkedIn Top Voice.
 
-SEU COMPORTAMENTO:
-1.  **Analítico e Crítico:** Não aceite frases como "ajudei a equipe". Se vir isso, pergunte: "Qual foi o impacto financeiro? De quanto foi o ROI?".
-2.  **Foco em ATS:** Você sabe que robôs leem keywords. Garanta que elas estejam lá.
-3.  **Interativo:** Não entregue o CV pronto de cara. Primeiro, ENTREVISTE o candidato sobre as lacunas do CV.
-4.  **Nível Executivo:** Se o usuário ganha R$ 20k+, exija termos de P&L, Gestão, Estratégia e Governança.
+REGRA DE OURO: Você não aceita textos rasos. Você constrói um perfil de Alta Performance. Em cada etapa, você PAUSA, entrevista e valida.
 
-FASES DA CONVERSA:
-1.  Análise Inicial: Leia o CV e aponte 3 falhas graves imediatamente.
-2.  Interrogatório: Faça 1 pergunta difícil por vez para extrair métricas do usuário.
-3.  Reescrita: Só reescreva o CV quando tiver dados numéricos suficientes.
+ESTRUTURA DE FASES (Siga rigorosamente):
+1. DIAGNÓSTICO: Identifique a área macro e faça as 4 perguntas (P1, P2, P3, P4). Só avance quando o usuário responder.
+2. MENU: Só libere o comando /otimizador_cv_linkedin após ter as respostas P1-P4.
+3. SEO (Etapa 1): Liste 10 palavras-chave do Cargo P2. Compare com o CV. Pergunte sobre as faltantes. PAUSE.
+4. MÉTRICAS (Etapa 2): Para cada exp, ache frases vagas e desafie: "Preciso de números. Qual impacto (R$, %)?". PAUSE.
+5. CURADORIA (Etapa 3): Pergunte: "Tem alguma conquista ou soft skill indispensável que não cobrimos?". Valide se é sinal ou ruído. PAUSE.
+6. ENGENHARIA (Etapa 4): Reescreva usando as estruturas:
+   - Resumo: Hook + Metodologia + Impactos (foguete) + Tech Stack.
+   - Experiência: Cargo | Empresa -> Foco -> Bullet points (Ação + Ferramenta + Resultado).
+7. ARQUIVO MESTRE (Etapa 6): Gere o bloco final compilado.
+
+IMPORTANTE: Não faça tudo de uma vez. Faça UMA etapa, pare e espere o usuário.
 """
 
 # --- 3. FUNÇÕES ---
@@ -38,112 +47,127 @@ def extract_text(file):
             return "\n".join([p.extract_text() for p in pdf.pages if p.extract_text()])
     except: return None
 
-def generate_ai_response(messages, api_key):
-    if not api_key: return "⚠️ Preciso da sua API Key da OpenAI para pensar."
-    
+def get_response(messages, api_key):
+    if not api_key: return "⚠️ Insira a API Key na barra lateral."
     client = openai.OpenAI(api_key=api_key)
     try:
         response = client.chat.completions.create(
-            model="gpt-4", # Use gpt-4 para melhor raciocínio, ou gpt-3.5-turbo para rapidez
+            model="gpt-4o", # Recomendado para seguir instruções complexas
             messages=messages,
-            temperature=0.4
+            temperature=0.5
         )
         return response.choices[0].message.content
     except Exception as e:
         return f"Erro na IA: {e}"
 
-# --- 4. INTERFACE PRINCIPAL ---
+# --- 4. CONTROLE DE ESTADO (FLOW CONTROL) ---
+if "messages" not in st.session_state:
+    st.session_state.messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+if "cv_content" not in st.session_state: st.session_state.cv_content = None
+if "fase_atual" not in st.session_state: st.session_state.fase_atual = "UPLOAD"
+# Fases: UPLOAD -> DIAGNOSTICO -> MENU -> EXECUCAO
 
-# Sidebar
+# --- 5. SIDEBAR ---
 with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/2910/2910768.png", width=60)
-    st.title("Protocolo Nobile")
-    api_key = st.text_input("🔑 OpenAI API Key", type="password")
+    st.image("https://cdn-icons-png.flaticon.com/512/3048/3048127.png", width=60)
+    st.title("Nobile Strategy")
+    api_key = st.text_input("OpenAI API Key", type="password")
     
     st.markdown("---")
-    senioridade = st.selectbox("Nível Alvo", ["Pleno", "Sênior", "Executivo (R$ 20k+)", "C-Level"])
-    cargo = st.text_input("Cargo Desejado", value="Head de Operações")
-    
-    if st.button("🗑️ Limpar Conversa"):
-        st.session_state.messages = []
+    st.caption("Status do Protocolo:")
+    if st.session_state.fase_atual == "UPLOAD":
+        st.warning("1. Aguardando CV")
+    elif st.session_state.fase_atual == "DIAGNOSTICO":
+        st.info("2. Diagnóstico & Setup")
+    elif st.session_state.fase_atual == "MENU":
+        st.success("3. Menu Liberado")
+    else:
+        st.success("4. Otimização em Curso")
+        
+    if st.button("🔄 Reiniciar Sessão"):
+        for key in list(st.session_state.keys()): del st.session_state[key]
         st.rerun()
 
-# Inicialização do Chat
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-if "cv_context" not in st.session_state:
-    st.session_state.cv_context = ""
+# --- 6. INTERFACE PRINCIPAL ---
+st.title("Headhunter Elite Global AI")
 
-st.title("Headhunter AI: Análise & Interrogatório")
-st.caption(f"Modo: {senioridade} | Foco: {cargo}")
-
-# Passo 0: Upload (Só aparece se não tiver lido o CV ainda)
-if not st.session_state.cv_context:
-    uploaded_file = st.file_uploader("📂 Suba seu CV (PDF) para iniciar a entrevista", type="pdf")
+# FASE 1: UPLOAD
+if not st.session_state.cv_content:
+    st.markdown("<div class='info-box'>👋 Bem-vindo. Para iniciar o protocolo de Alta Performance, preciso ler seu histórico primeiro.</div>", unsafe_allow_html=True)
+    uploaded_file = st.file_uploader("Suba seu CV (PDF)", type="pdf")
+    
     if uploaded_file and api_key:
-        with st.spinner("Lendo documento..."):
+        with st.spinner("Headhunter lendo seu perfil..."):
             text = extract_text(uploaded_file)
-            st.session_state.cv_context = text
+            st.session_state.cv_content = text
+            st.session_state.fase_atual = "DIAGNOSTICO"
             
-            # PRIMEIRA MENSAGEM DA IA (O GATILHO)
-            initial_prompt = f"""
-            O candidato subiu o CV. 
-            Texto do CV: {text[:4000]}
-            Cargo Alvo: {cargo}
-            Nível: {senioridade}
+            # GATILHO DO PASSO 1 (DIAGNÓSTICO)
+            trigger_prompt = f"""
+            O USUÁRIO SUBIU O CV:
+            {text[:4000]}
             
             AÇÃO:
-            1. Cumprimente o candidato pelo nome (se achar no CV).
-            2. Dê uma nota dura de 0 a 100 para o CV atual considerando o cargo de {cargo}.
-            3. Aponte a falha mais crítica (ex: falta de métricas, muito operacional).
-            4. Faça a primeira pergunta do interrogatório para melhorar uma experiência específica.
+            1. Leia.
+            2. Identifique a área macro.
+            3. Diga: "Entendi. Atuarei como especialista em [Área]".
+            4. Faça as perguntas P1, P2, P3 e P4 conforme o script.
             """
             
-            # Adiciona contexto do sistema (invisível)
-            st.session_state.messages.append({"role": "system", "content": SYSTEM_PROMPT})
-            
-            # Gera a primeira resposta
-            ai_reply = generate_ai_response([{"role": "user", "content": initial_prompt}], api_key)
-            
-            # Adiciona ao histórico visível
-            st.session_state.messages.append({"role": "assistant", "content": ai_reply})
+            st.session_state.messages.append({"role": "user", "content": trigger_prompt})
+            reply = get_response(st.session_state.messages, api_key)
+            st.session_state.messages.append({"role": "assistant", "content": reply})
             st.rerun()
 
-# Passo 1: Loop do Chat (Onde a mágica acontece)
+# FASE 2: CHAT INTERATIVO
 else:
-    # Mostra histórico
+    # Exibe o histórico
     for msg in st.session_state.messages:
-        if msg["role"] != "system":
+        if msg["role"] != "system" and "O USUÁRIO SUBIU O CV" not in str(msg["content"]):
             with st.chat_message(msg["role"]):
                 st.markdown(msg["content"])
 
-    # Input do Usuário
-    if user_input := st.chat_input("Responda ao Headhunter..."):
-        # Adiciona resposta do usuário
-        st.session_state.messages.append({"role": "user", "content": user_input})
+    # Lógica para detectar se o diagnóstico acabou e liberar o MENU
+    # (Gambiarra inteligente: se a IA não perguntou nada na última msg, provavelmente espera o menu)
+    last_msg = st.session_state.messages[-1]["content"]
+    if "P4" in last_msg or "Onde você mora" in last_msg:
+        st.session_state.fase_atual = "DIAGNOSTICO"
+    elif st.session_state.fase_atual == "DIAGNOSTICO" and len(st.session_state.messages) > 3:
+        # Assume que após responder P1-P4, vamos para o menu
+        st.session_state.fase_atual = "MENU"
+
+    # ÁREA DE INPUT DO USUÁRIO
+    if prompt := st.chat_input("Sua resposta..."):
+        st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
-            st.markdown(user_input)
+            st.markdown(prompt)
 
-        # IA Pensa e Responde
-        with st.spinner("Headhunter analisando..."):
-            # Contexto contínuo
-            ai_reply = generate_ai_response(st.session_state.messages, api_key)
-            
-            st.session_state.messages.append({"role": "assistant", "content": ai_reply})
-            with st.chat_message("assistant"):
-                st.markdown(ai_reply)
+        with st.chat_message("assistant"):
+            with st.spinner("Analisando..."):
+                response = get_response(st.session_state.messages, api_key)
+                st.markdown(response)
+        st.session_state.messages.append({"role": "assistant", "content": response})
+        st.rerun()
 
-# Botão Extra para Gerar Versão Final
-if st.session_state.cv_context and len(st.session_state.messages) > 3:
-    st.markdown("---")
-    if st.button("📄 Gerar CV Final Otimizado (Download"):
-        with st.spinner("Compilando todas as informações..."):
-            final_prompt = f"""
-            Com base em tudo que conversamos e nos dados extraídos do interrogatório:
-            Gere o CV FINAL em formato Markdown.
-            - Use palavras-chave de ATS para {cargo}.
-            - Substitua as experiências antigas pelas novas métricas que o usuário informou.
-            - Estrutura: Resumo Executivo, Competências, Experiência (Bullet points com ROI).
-            """
-            final_cv = generate_ai_response(st.session_state.messages + [{"role": "user", "content": final_prompt}], api_key)
-            st.download_button("Baixar CV Otimizado", final_cv, file_name="CV_Nobile_Protocol.md")
+    # MENU DE COMANDOS (Só aparece se saiu do diagnóstico)
+    if st.session_state.fase_atual in ["MENU", "EXECUCAO"]:
+        st.markdown("---")
+        st.subheader("🕹️ Menu de Comandos")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("🚀 /otimizador_cv_linkedin (Iniciar Protocolo Completo)"):
+                st.session_state.fase_atual = "EXECUCAO"
+                trigger = """
+                O usuário acionou o comando: /otimizador_cv_linkedin.
+                INICIE A ETAPA 1 (Mapeamento SEO).
+                Baseado no Cargo P2 definido, liste as 10 Palavras-Chave. Compare com o CV e pergunte sobre as faltantes.
+                """
+                st.session_state.messages.append({"role": "user", "content": trigger})
+                st.rerun()
+        
+        with col2:
+            if st.button("📄 Gerar Arquivo Mestre (Pular p/ Final)"):
+                 trigger = "Pule para a ETAPA 6: O ARQUIVO MESTRE. Compile tudo o que temos agora."
+                 st.session_state.messages.append({"role": "user", "content": trigger})
+                 st.rerun()
