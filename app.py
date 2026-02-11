@@ -3,147 +3,150 @@ import openai
 import pdfplumber
 import time
 
-# --- 1. CONFIGURAÇÃO VISUAL ---
-st.set_page_config(page_title="Nobile Career Protocol", page_icon="🦅", layout="wide")
+# --- 1. CONFIGURAÇÃO VISUAL (Estilo Hacker/Executivo) ---
+st.set_page_config(page_title="Nobile Career Strategist", page_icon="♟️", layout="wide")
 
 st.markdown("""
 <style>
-    .stApp { background-color: #0E1117; color: #E0E0E0; }
-    .stChatMessage { background-color: #262730; border-radius: 10px; padding: 10px; margin-bottom: 10px; }
-    .stButton>button { background: #00B4D8; color: white; border: none; font-weight: bold; }
+    .stApp { background-color: #0E1117; color: #C9D1D9; }
+    /* Estilo das mensagens do chat */
+    .stChatMessage { background-color: #161B22; border: 1px solid #30363D; border-radius: 8px; }
+    .stChatMessage[data-testid="stChatMessageUser"] { background-color: #1F6FEB; color: white; }
+    /* Botões */
+    .stButton>button { background-color: #238636; color: white; font-weight: bold; border: none; }
+    h1 { color: #58A6FF; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. CÉREBRO DA IA (PERSONA HEADHUNTER) ---
+# --- 2. O CÉREBRO (A Lógica que replica sua consultoria) ---
 SYSTEM_PROMPT = """
-VOCÊ É O "NOBILE CAREER PROTOCOL", UM HEADHUNTER EXECUTIVO DE ELITE.
-Sua missão não é apenas revisar texto, é ELEVAR o nível de senioridade do candidato.
+VOCÊ É O "NOBILE CAREER STRATEGIST" (IA MENTOR).
+Sua função NÃO é entregar um relatório pronto. Sua função é CONSTRUIR o CV junto com o usuário através de perguntas difíceis.
 
-SEU COMPORTAMENTO:
-1.  **Analítico e Crítico:** Não aceite frases como "ajudei a equipe". Se vir isso, pergunte: "Qual foi o impacto financeiro? De quanto foi o ROI?".
-2.  **Foco em ATS:** Você sabe que robôs leem keywords. Garanta que elas estejam lá.
-3.  **Interativo:** Não entregue o CV pronto de cara. Primeiro, ENTREVISTE o candidato sobre as lacunas do CV.
-4.  **Nível Executivo:** Se o usuário ganha R$ 20k+, exija termos de P&L, Gestão, Estratégia e Governança.
+SUAS REGRAS DE COMPORTAMENTO:
+1.  **Personalidade:** Você é um Headhunter Executivo Sênior. Você é direto, exigente e focado em números (ROI, EBITDA, KPI).
+2.  **O "Interrogatório":** Nunca aceite respostas vagas.
+    - Se o usuário disser: "Melhorei o processo de vendas."
+    - Você DEVE responder: "Isso é muito júnior. De quanto foi a melhoria? Qual era o volume financeiro? Quantas pessoas na equipe? Me dê dados."
+3.  **Passo a Passo:**
+    - Primeiro: Leia o CV e aponte o erro mais grave.
+    - Segundo: Escolha UMA experiência e comece a perguntar detalhes sobre ela.
+    - Terceiro: Reescreva o texto APENAS depois que o usuário der os números.
+4.  **Objetivo:** O CV final deve passar em ATS de multinacionais e agradar Diretores.
 
-FASES DA CONVERSA:
-1.  Análise Inicial: Leia o CV e aponte 3 falhas graves imediatamente.
-2.  Interrogatório: Faça 1 pergunta difícil por vez para extrair métricas do usuário.
-3.  Reescrita: Só reescreva o CV quando tiver dados numéricos suficientes.
+Mantenha a conversa fluida, uma pergunta por vez.
 """
 
 # --- 3. FUNÇÕES ---
-def extract_text(file):
+def extract_pdf(file):
     try:
         with pdfplumber.open(file) as pdf:
             return "\n".join([p.extract_text() for p in pdf.pages if p.extract_text()])
     except: return None
 
-def generate_ai_response(messages, api_key):
-    if not api_key: return "⚠️ Preciso da sua API Key da OpenAI para pensar."
-    
-    client = openai.OpenAI(api_key=api_key)
+def get_ai_response(messages, api_key):
+    if not api_key: return "⚠️ Por favor, insira sua API Key na barra lateral."
     try:
+        client = openai.OpenAI(api_key=api_key)
         response = client.chat.completions.create(
-            model="gpt-4", # Use gpt-4 para melhor raciocínio, ou gpt-3.5-turbo para rapidez
+            model="gpt-4", # GPT-4 é essencial para seguir a "persona" complexa
             messages=messages,
-            temperature=0.4
+            temperature=0.6
         )
         return response.choices[0].message.content
     except Exception as e:
         return f"Erro na IA: {e}"
 
-# --- 4. INTERFACE PRINCIPAL ---
+# --- 4. MEMÓRIA DA CONVERSA ---
+if "messages" not in st.session_state:
+    st.session_state.messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+if "cv_content" not in st.session_state: st.session_state.cv_content = None
 
-# Sidebar
+# --- 5. BARRA LATERAL ---
 with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/2910/2910768.png", width=60)
-    st.title("Protocolo Nobile")
-    api_key = st.text_input("🔑 OpenAI API Key", type="password")
-    
+    st.title("♟️ Nobile Strategy")
+    api_key = st.text_input("OpenAI API Key", type="password")
     st.markdown("---")
-    senioridade = st.selectbox("Nível Alvo", ["Pleno", "Sênior", "Executivo (R$ 20k+)", "C-Level"])
-    cargo = st.text_input("Cargo Desejado", value="Head de Operações")
+    cargo_alvo = st.text_input("Cargo Alvo", value="Diretor de Operações")
+    st.info("Este sistema simula uma entrevista real. Prepare-se para ser desafiado.")
     
-    if st.button("🗑️ Limpar Conversa"):
-        st.session_state.messages = []
+    if st.button("Reiniciar Conversa"):
+        st.session_state.messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+        st.session_state.cv_content = None
         st.rerun()
 
-# Inicialização do Chat
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-if "cv_context" not in st.session_state:
-    st.session_state.cv_context = ""
+# --- 6. TELA PRINCIPAL (CHAT) ---
+st.title("Nobile Career Protocol: AI Mentor")
+st.caption(f"Consultoria Ativa para: **{cargo_alvo}**")
 
-st.title("Headhunter AI: Análise & Interrogatório")
-st.caption(f"Modo: {senioridade} | Foco: {cargo}")
-
-# Passo 0: Upload (Só aparece se não tiver lido o CV ainda)
-if not st.session_state.cv_context:
-    uploaded_file = st.file_uploader("📂 Suba seu CV (PDF) para iniciar a entrevista", type="pdf")
+# CENÁRIO A: Usuário ainda não mandou o CV
+if not st.session_state.cv_content:
+    uploaded_file = st.file_uploader("📂 Envie seu CV (PDF) para iniciar a mentoria", type="pdf")
+    
     if uploaded_file and api_key:
-        with st.spinner("Lendo documento..."):
-            text = extract_text(uploaded_file)
-            st.session_state.cv_context = text
+        with st.spinner("O Headhunter está lendo seu perfil..."):
+            text = extract_pdf(uploaded_file)
+            st.session_state.cv_content = text
             
-            # PRIMEIRA MENSAGEM DA IA (O GATILHO)
-            initial_prompt = f"""
-            O candidato subiu o CV. 
-            Texto do CV: {text[:4000]}
-            Cargo Alvo: {cargo}
-            Nível: {senioridade}
+            # GATILHO INICIAL (A IA analisa e já começa batendo)
+            start_prompt = f"""
+            O USUÁRIO ACABOU DE SUBIR O CV.
+            Conteúdo: {text[:4000]}
+            Cargo Desejado: {cargo_alvo}
             
             AÇÃO:
-            1. Cumprimente o candidato pelo nome (se achar no CV).
-            2. Dê uma nota dura de 0 a 100 para o CV atual considerando o cargo de {cargo}.
-            3. Aponte a falha mais crítica (ex: falta de métricas, muito operacional).
-            4. Faça a primeira pergunta do interrogatório para melhorar uma experiência específica.
+            1. Analise o CV friamente.
+            2. Diga "Olá [Nome]".
+            3. Aponte o erro mais crítico que impediria ele de ganhar R$ 20k+.
+            4. Faça IMEDIATAMENTE uma pergunta difícil sobre a experiência mais recente para forçar ele a dar números.
             """
             
-            # Adiciona contexto do sistema (invisível)
-            st.session_state.messages.append({"role": "system", "content": SYSTEM_PROMPT})
+            # Adiciona prompt invisível ao histórico
+            msgs_temp = st.session_state.messages + [{"role": "user", "content": start_prompt}]
+            reply = get_ai_response(msgs_temp, api_key)
             
-            # Gera a primeira resposta
-            ai_reply = generate_ai_response([{"role": "user", "content": initial_prompt}], api_key)
-            
-            # Adiciona ao histórico visível
-            st.session_state.messages.append({"role": "assistant", "content": ai_reply})
+            # Adiciona resposta da IA ao histórico visível
+            st.session_state.messages.append({"role": "assistant", "content": reply})
             st.rerun()
 
-# Passo 1: Loop do Chat (Onde a mágica acontece)
+# CENÁRIO B: A Conversa Acontece
 else:
-    # Mostra histórico
+    # Exibe histórico (menos o system prompt)
     for msg in st.session_state.messages:
-        if msg["role"] != "system":
+        if msg["role"] != "system" and "O USUÁRIO ACABOU DE SUBIR" not in str(msg["content"]):
             with st.chat_message(msg["role"]):
                 st.markdown(msg["content"])
 
-    # Input do Usuário
+    # Campo de resposta do usuário
     if user_input := st.chat_input("Responda ao Headhunter..."):
-        # Adiciona resposta do usuário
+        # 1. Mostra o que o usuário escreveu
         st.session_state.messages.append({"role": "user", "content": user_input})
         with st.chat_message("user"):
             st.markdown(user_input)
 
-        # IA Pensa e Responde
-        with st.spinner("Headhunter analisando..."):
-            # Contexto contínuo
-            ai_reply = generate_ai_response(st.session_state.messages, api_key)
-            
-            st.session_state.messages.append({"role": "assistant", "content": ai_reply})
-            with st.chat_message("assistant"):
-                st.markdown(ai_reply)
+        # 2. IA Pensa e Responde
+        with st.chat_message("assistant"):
+            with st.spinner("Analisando sua resposta..."):
+                # Injeta contexto periódico para a IA não esquecer o CV original
+                current_history = st.session_state.messages
+                if len(current_history) % 5 == 0:
+                    current_history.append({"role": "system", "content": f"Contexto do CV Original: {st.session_state.cv_content[:500]}..."})
+                
+                response = get_ai_response(current_history, api_key)
+                st.markdown(response)
+                
+        st.session_state.messages.append({"role": "assistant", "content": response})
 
-# Botão Extra para Gerar Versão Final
-if st.session_state.cv_context and len(st.session_state.messages) > 3:
-    st.markdown("---")
-    if st.button("📄 Gerar CV Final Otimizado (Download"):
-        with st.spinner("Compilando todas as informações..."):
-            final_prompt = f"""
-            Com base em tudo que conversamos e nos dados extraídos do interrogatório:
-            Gere o CV FINAL em formato Markdown.
-            - Use palavras-chave de ATS para {cargo}.
-            - Substitua as experiências antigas pelas novas métricas que o usuário informou.
-            - Estrutura: Resumo Executivo, Competências, Experiência (Bullet points com ROI).
-            """
-            final_cv = generate_ai_response(st.session_state.messages + [{"role": "user", "content": final_prompt}], api_key)
-            st.download_button("Baixar CV Otimizado", final_cv, file_name="CV_Nobile_Protocol.md")
+    # Botão para gerar o documento final (só aparece depois de uma troca de msgs)
+    if len(st.session_state.messages) > 4:
+        st.markdown("---")
+        if st.button("📄 Gerar CV Otimizado (Baseado na Conversa)"):
+            with st.spinner("Compilando documento final..."):
+                final_prompt = f"""
+                Gere o CV FINAL em Markdown.
+                Use TODAS as informações numéricas e estratégicas que extraímos durante a conversa.
+                O tom deve ser de {cargo_alvo}.
+                """
+                # Chama a IA uma última vez para criar o documento
+                final_doc = get_ai_response(st.session_state.messages + [{"role": "user", "content": final_prompt}], api_key)
+                st.download_button("Baixar CV Final.md", final_doc, "cv_otimizado.md")
