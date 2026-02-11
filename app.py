@@ -2,6 +2,7 @@ import streamlit as st
 import openai
 import pdfplumber
 import time
+import json
 
 # --- 1. CONFIGURAÇÃO VISUAL ---
 st.set_page_config(page_title="Nobile Career Strategy", page_icon="♟️", layout="wide")
@@ -69,11 +70,52 @@ def get_response(messages, api_key):
     except Exception as e:
         return f"Erro na IA: {e}"
 
+def calculate_ats_score(cv_text, target_role, api_key):
+    """Calcula o Score ATS e identifica keywords faltantes"""
+    if not api_key: return None
+    client = openai.OpenAI(api_key=api_key)
+
+    MAX_CV_TEXT_LENGTH = 3000
+
+    prompt = f"""
+    ATUE COMO: Auditor de RH e Especialista em ATS.
+    CONTEXTO:
+    - CV Texto: {cv_text[:MAX_CV_TEXT_LENGTH]}
+    - Cargo Alvo: {target_role}
+
+    TAREFA (Retorne JSON):
+    1. **ATS_Score**: Calcule a % de palavras-chave do cargo presentes no CV (0-100).
+    2. **Keywords_Present**: Liste 5-10 palavras-chave PRESENTES no CV.
+    3. **Keywords_Missing**: Liste 5-10 palavras-chave críticas que FALTAM.
+    4. **Recomendacoes**: Liste 3 recomendações curtas para melhorar o score.
+
+    FORMATO JSON OBRIGATÓRIO:
+    {{
+        "ats_score": 0,
+        "keywords_present": ["k1", "k2", "k3"],
+        "keywords_missing": ["k1", "k2", "k3"],
+        "recomendacoes": ["r1", "r2", "r3"]
+    }}
+    """
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"},
+            temperature=0.2
+        )
+        return json.loads(response.choices[0].message.content)
+    except Exception as e:
+        st.error(f"Erro no cálculo ATS: {e}")
+        return None
+
 # --- 4. CONTROLE DE ESTADO ---
 if "messages" not in st.session_state:
     st.session_state.messages = [{"role": "system", "content": SYSTEM_PROMPT}]
 if "cv_content" not in st.session_state: st.session_state.cv_content = None
 if "fase_atual" not in st.session_state: st.session_state.fase_atual = "UPLOAD"
+if "ats_data" not in st.session_state: st.session_state.ats_data = None
+if "target_role" not in st.session_state: st.session_state.target_role = ""
 
 # --- 5. SIDEBAR ---
 with st.sidebar:
@@ -141,7 +183,7 @@ else:
     # MENU DE COMANDOS (Aparece só depois do Diagnóstico)
     if st.session_state.fase_atual in ["MENU", "EXECUCAO"] and st.session_state.messages[-1]["role"] == "assistant":
         st.markdown("---")
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
         with col1:
             if st.button("🚀 /otimizador_cv_linkedin"):
                 st.session_state.fase_atual = "EXECUCAO"
@@ -154,3 +196,67 @@ else:
                  trigger = "Pule para a ETAPA 5: ARQUIVO MESTRE."
                  st.session_state.messages.append({"role": "user", "content": trigger})
                  st.rerun()
+
+        with col3:
+            if st.button("📊 Calcular Score ATS"):
+                # Extract target role from conversation
+                for msg in reversed(st.session_state.messages):
+                    if "P2" in msg.get("content", "") or "cargo" in msg.get("content", "").lower():
+                        # Try to find role mentioned in user's response
+                        continue
+                st.session_state.ats_data = "calculating"
+                st.rerun()
+
+    # EXIBIR RESULTADO ATS (Se foi calculado)
+    if st.session_state.ats_data == "calculating" and api_key:
+        with st.spinner("Calculando Score ATS..."):
+            # Ask user for target role if not in session
+            if not st.session_state.target_role:
+                role_input = st.text_input("Para qual cargo deseja calcular o Score ATS?", key="ats_role_input")
+                if role_input:
+                    st.session_state.target_role = role_input
+                    ats_result = calculate_ats_score(st.session_state.cv_content, role_input, api_key)
+                    st.session_state.ats_data = ats_result
+                    st.rerun()
+            else:
+                ats_result = calculate_ats_score(st.session_state.cv_content, st.session_state.target_role, api_key)
+                st.session_state.ats_data = ats_result
+                st.rerun()
+
+    if st.session_state.ats_data and st.session_state.ats_data != "calculating":
+        st.markdown("---")
+        st.subheader("📊 Relatório ATS Score")
+
+        data = st.session_state.ats_data
+        score = data.get('ats_score', 0)
+
+        # Score visual
+        col_a, col_b, col_c = st.columns([1, 2, 2])
+        with col_a:
+            color = "#4CAF50" if score >= 70 else "#FF9800" if score >= 50 else "#FF5252"
+            st.markdown(f"""
+            <div style="background-color: #1E1E1E; border: 2px solid {color}; padding: 20px;
+                 border-radius: 8px; text-align: center;">
+                <div style="font-size: 3em; font-weight: bold; color: {color};">{score}%</div>
+                <div style="font-size: 0.9em; color: #AAA;">Score ATS</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with col_b:
+            st.markdown("**✅ Keywords Presentes:**")
+            for kw in data.get('keywords_present', []):
+                st.success(f"• {kw}", icon="✅")
+
+        with col_c:
+            st.markdown("**❌ Keywords Faltantes:**")
+            for kw in data.get('keywords_missing', []):
+                st.error(f"• {kw}", icon="❌")
+
+        st.markdown("**💡 Recomendações:**")
+        for rec in data.get('recomendacoes', []):
+            st.info(f"• {rec}")
+
+        if st.button("🔄 Recalcular ATS"):
+            st.session_state.ats_data = None
+            st.session_state.target_role = ""
+            st.rerun()
