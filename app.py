@@ -42,7 +42,8 @@ def extract_pdf(file):
     try:
         with pdfplumber.open(file) as pdf:
             return "\n".join([p.extract_text() for p in pdf.pages if p.extract_text()])
-    except: return None
+    except Exception:
+        return None
 
 def get_ai_response(messages, api_key):
     if not api_key: return "⚠️ Por favor, insira sua API Key na barra lateral."
@@ -60,7 +61,8 @@ def get_ai_response(messages, api_key):
 # --- 4. MEMÓRIA DA CONVERSA ---
 if "messages" not in st.session_state:
     st.session_state.messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-if "cv_content" not in st.session_state: st.session_state.cv_content = None
+if "cv_content" not in st.session_state:
+    st.session_state.cv_content = None
 
 # --- 5. BARRA LATERAL ---
 with st.sidebar:
@@ -127,9 +129,10 @@ else:
         # 2. IA Pensa e Responde
         with st.chat_message("assistant"):
             with st.spinner("Analisando sua resposta..."):
-                # Injeta contexto periódico para a IA não esquecer o CV original
+                # Injeta contexto periódico a cada 5 mensagens para a IA não esquecer o CV original
                 current_history = st.session_state.messages
-                if len(current_history) % 5 == 0:
+                CONTEXT_REFRESH_INTERVAL = 5
+                if len(current_history) % CONTEXT_REFRESH_INTERVAL == 0:
                     current_history.append({"role": "system", "content": f"Contexto do CV Original: {st.session_state.cv_content[:500]}..."})
                 
                 response = get_ai_response(current_history, api_key)
