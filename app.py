@@ -2,7 +2,7 @@ import streamlit as st
 
 # Importar módulos do projeto
 from config import setup_page, apply_custom_css, MAX_CV_TEXT_FOR_TRIGGER, P4_DETECTION_KEYWORDS
-from prompts import SYSTEM_PROMPT
+from prompts import SYSTEM_PROMPT, PromptTemplates
 from utils import extract_text
 from engine import get_response, extract_role_from_cv, calculate_ats_score
 
@@ -98,7 +98,7 @@ if not st.session_state.cv_content:
             st.session_state.ats_data = ats_result
 
             # Força o início do Diagnóstico
-            trigger = f"O USUÁRIO SUBIU O CV: {text[:MAX_CV_TEXT_FOR_TRIGGER]}... INICIE A FASE 1 (DIAGNÓSTICO) AGORA."
+            trigger = PromptTemplates.cv_upload_trigger(text[:MAX_CV_TEXT_FOR_TRIGGER])
             st.session_state.messages.append({"role": "user", "content": trigger})
             reply = get_response(st.session_state.messages, api_key)
             st.session_state.messages.append({"role": "assistant", "content": reply})
@@ -143,12 +143,12 @@ else:
         with col1:
             if st.button("🚀 /otimizador_cv_linkedin"):
                 st.session_state.fase_atual = "EXECUCAO"
-                trigger = "O usuário ACIONOU: /otimizador_cv_linkedin. INICIE A ETAPA 1 (SEO)."
+                trigger = PromptTemplates.optimizer_trigger()
                 st.session_state.messages.append({"role": "user", "content": trigger})
                 st.rerun()
 
         with col2:
             if st.button("📄 Pular para Arquivo Final"):
-                 trigger = "Pule para a ETAPA 5: ARQUIVO MESTRE."
+                 trigger = PromptTemplates.skip_to_final_trigger()
                  st.session_state.messages.append({"role": "user", "content": trigger})
                  st.rerun()
