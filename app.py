@@ -168,6 +168,6 @@ else:
         
         with col2:
             if st.button("📄 Gerar Arquivo Mestre (Pular p/ Final)"):
-                 trigger = "Pule para a ETAPA 6: O ARQUIVO MESTRE. Compile tudo o que temos agora."
-                 st.session_state.messages.append({"role": "user", "content": trigger})
-                 st.rerun()
+                trigger = "Pule para a ETAPA 6: O ARQUIVO MESTRE. Compile tudo o que temos agora."
+                st.session_state.messages.append({"role": "user", "content": trigger})
+                st.rerun()
