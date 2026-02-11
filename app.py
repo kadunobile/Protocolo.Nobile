@@ -1,7 +1,7 @@
 import streamlit as st
 
 # Importar módulos do projeto
-from config import setup_page, apply_custom_css, MAX_CV_TEXT_FOR_TRIGGER
+from config import setup_page, apply_custom_css, MAX_CV_TEXT_FOR_TRIGGER, get_api_key
 from prompts import SYSTEM_PROMPT, PromptTemplates
 from utils import extract_text
 from engine import get_response, extract_role_from_cv, calculate_ats_score
@@ -24,7 +24,17 @@ if "phase_manager" not in st.session_state: st.session_state.phase_manager = Pha
 with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/3048/3048127.png", width=60)
     st.title("Nobile Strategy")
-    api_key = st.text_input("OpenAI API Key", type="password")
+    
+    # Tentar carregar API key do .env primeiro
+    env_api_key = get_api_key()
+    
+    if env_api_key:
+        # Se existe no .env, usar ela e mostrar mensagem informativa
+        api_key = env_api_key
+        st.success("✅ API Key carregada do .env")
+    else:
+        # Se não existe no .env, pedir via input (fallback)
+        api_key = st.text_input("OpenAI API Key", type="password")
 
     st.markdown("---")
     if st.button("🔄 Reiniciar Sessão"):
