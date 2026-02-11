@@ -5,8 +5,7 @@ Phase Manager for Nobile Career Strategy - FSM-based phase control
 from enum import Enum
 import logging
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# Get logger without configuring at module level
 logger = logging.getLogger(__name__)
 
 # Import FSM constants from config
@@ -71,9 +70,9 @@ class PhaseManager:
             # Skip system messages and internal triggers
             if msg.get("role") == "system":
                 continue
-            content = str(msg.get("content", ""))
-            # Use trigger keywords from config
-            if any(keyword in content for keyword in FSM_TRIGGER_KEYWORDS):
+            content = str(msg.get("content", "")).upper()  # Case-insensitive matching
+            # Use trigger keywords from config (case-insensitive)
+            if any(keyword.upper() in content for keyword in FSM_TRIGGER_KEYWORDS):
                 continue
             if msg.get("role") in ["user", "assistant"]:
                 count += 1
@@ -152,8 +151,9 @@ class PhaseManager:
             bool: True if transition occurred
         """
         if self.current_phase == Phase.MENU:
-            # Use command keywords from config
-            if any(keyword in last_message_content for keyword in FSM_COMMAND_KEYWORDS):
+            # Use command keywords from config (case-insensitive matching)
+            content_upper = last_message_content.upper()
+            if any(keyword.upper() in content_upper for keyword in FSM_COMMAND_KEYWORDS):
                 self.current_phase = Phase.EXECUCAO
                 logger.info("Phase transition: MENU → EXECUCAO (command triggered)")
                 return True

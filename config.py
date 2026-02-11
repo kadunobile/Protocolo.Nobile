@@ -12,8 +12,12 @@ MAX_CV_TEXT_LENGTH_ATS = 3000  # Máximo de caracteres do CV para cálculo ATS
 # --- CONSTANTES FSM (Finite State Machine) ---
 FSM_MIN_MESSAGE_PAIRS_FOR_MENU = 4  # Mínimo de pares user-AI para liberar menu
 FSM_MIN_AI_MESSAGES_FOR_DIAGNOSTICO_EM_ANDAMENTO = 1  # Mínimo de mensagens AI após diagnóstico
-FSM_TRIGGER_KEYWORDS = ["O USUÁRIO SUBIU", "ACIONOU"]  # Keywords para identificar triggers internos
-FSM_COMMAND_KEYWORDS = ["ACIONOU", "/otimizador_cv_linkedin", "ETAPA 5: ARQUIVO MESTRE"]  # Keywords para comandos
+
+# Keywords para identificar triggers internos do sistema (não contam como interações do usuário)
+FSM_TRIGGER_KEYWORDS = ["O USUÁRIO SUBIU", "ACIONOU"]
+
+# Keywords para detectar comandos que acionam fase de execução
+FSM_COMMAND_KEYWORDS = ["ACIONOU", "/otimizador_cv_linkedin", "ETAPA 5: ARQUIVO MESTRE"]
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 def setup_page():
