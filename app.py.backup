@@ -222,27 +222,50 @@ if not st.session_state.cv_content:
             ats_result = calculate_ats_score(text, detected_role, api_key)
             st.session_state.ats_data = ats_result
 
-            # Força o início do Diagnóstico
-            trigger = f"O USUÁRIO SUBIU O CV: {text[:4000]}... INICIE A FASE 1 (DIAGNÓSTICO) AGORA."
-            st.session_state.messages.append({"role": "user", "content": trigger})
-            reply = get_response(st.session_state.messages, api_key)
-            st.session_state.messages.append({"role": "assistant", "content": reply})
             st.rerun()
 
-# FASE 2: CHAT INTERATIVO
+# FASE 2: QUESTIONÁRIO ESTRATÉGICO (após upload do CV)
+elif not st.session_state.questionnaire_completed:
+    # Detectar área macro para a introdução
+    area_macro = "Revenue Operations (RevOps) e Sales Operations" if "sales" in st.session_state.target_role.lower() or "vendas" in st.session_state.target_role.lower() or "comercial" in st.session_state.target_role.lower() else st.session_state.target_role
+
+    st.success(f"✅ CV carregado com sucesso!")
+    st.info(f"**Entendi. Atuarei como especialista em {area_macro}.**")
+
+    # Renderizar formulário com fulfill boxes
+    if render_questionnaire(st.session_state.target_role):
+        # Quando o questionário for completado
+        with st.spinner("Processando suas respostas..."):
+            # Preparar mensagem estruturada com as respostas
+            answers = st.session_state.questionnaire_answers
+            structured_response = f"""
+            O usuário completou o questionário estratégico. Aqui estão as respostas:
+
+            P1 (Objetivo de carreira): {answers['P1']}
+            P2 (Cargos específicos): {answers['P2']}
+            P3 (Pretensão salarial): {answers['P3']}
+            P4 (Localização): {answers['P4']}
+
+            AGORA, reconheça as respostas e libere o MENU de opções para o usuário.
+            """
+
+            st.session_state.messages.append({"role": "user", "content": structured_response})
+            reply = get_response(st.session_state.messages, api_key)
+            st.session_state.messages.append({"role": "assistant", "content": reply})
+            st.session_state.fase_atual = "MENU"
+            st.rerun()
+
+# FASE 3: CHAT INTERATIVO
 else:
     # Mostra histórico (ocultando prompts técnicos)
     for msg in st.session_state.messages:
-        if msg["role"] != "system" and "O USUÁRIO SUBIU" not in str(msg["content"]) and "ACIONOU" not in str(msg["content"]):
+        if msg["role"] != "system" and "O USUÁRIO SUBIU" not in str(msg["content"]) and "ACIONOU" not in str(msg["content"]) and "completou o questionário estratégico" not in str(msg["content"]):
             with st.chat_message(msg["role"]):
                 st.markdown(msg["content"])
 
     # Lógica Automática para detectar liberação do MENU
-    last_ai_msg = st.session_state.messages[-1]["content"] if st.session_state.messages else ""
-    if "P4" in last_ai_msg or "Onde você mora" in last_ai_msg:
-        st.session_state.fase_atual = "DIAGNOSTICO_EM_ANDAMENTO"
-    elif st.session_state.fase_atual == "DIAGNOSTICO_EM_ANDAMENTO" and len(st.session_state.messages) > 4:
-        st.session_state.fase_atual = "MENU"
+    # Não é mais necessário detectar P4 porque o questionário é um formulário
+    # O MENU já é liberado automaticamente após o questionário ser completado
 
     # INPUT DO USUÁRIO
     user_input = st.chat_input("Sua resposta...")
