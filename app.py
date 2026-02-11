@@ -15,11 +15,20 @@ apply_custom_css()
 if "messages" not in st.session_state:
     st.session_state.messages = [{"role": "system", "content": SYSTEM_PROMPT}]
 if "cv_content" not in st.session_state: st.session_state.cv_content = None
-if "fase_atual" not in st.session_state: st.session_state.fase_atual = "UPLOAD"
 if "ats_data" not in st.session_state: st.session_state.ats_data = None
 if "target_role" not in st.session_state: st.session_state.target_role = ""
+
+# Inicializa fase_atual e phase_manager de forma consistente
+if "fase_atual" not in st.session_state: 
+    st.session_state.fase_atual = "UPLOAD"
 if "phase_manager" not in st.session_state:
-    st.session_state.phase_manager = PhaseManager(Phase.UPLOAD)
+    # Inicializa PhaseManager com a fase atual se já existe, senão usa UPLOAD
+    try:
+        initial_phase = Phase(st.session_state.fase_atual)
+    except (ValueError, KeyError):
+        initial_phase = Phase.UPLOAD
+        st.session_state.fase_atual = "UPLOAD"
+    st.session_state.phase_manager = PhaseManager(initial_phase)
 
 # --- 5. SIDEBAR ---
 with st.sidebar:

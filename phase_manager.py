@@ -36,6 +36,9 @@ class PhaseManager:
     - EXECUCAO → MENU (quando usuário retorna ao menu)
     """
     
+    # Triggers de execução (constante de classe)
+    _EXECUTION_TRIGGERS = [COMMAND_TRIGGER_TEXT, COMMAND_OTIMIZADOR_TEXT, COMMAND_ETAPA_TEXT]
+    
     def __init__(self, initial_phase: Phase = Phase.UPLOAD):
         """
         Inicializa o gerenciador de fases.
@@ -45,6 +48,23 @@ class PhaseManager:
         """
         self.current_phase = initial_phase
         self._transition_log = []
+    
+    def _is_user_message_non_trigger(self, msg: Dict) -> bool:
+        """
+        Verifica se uma mensagem do usuário não é um trigger técnico.
+        
+        Args:
+            msg: Mensagem a ser verificada
+            
+        Returns:
+            bool: True se a mensagem é do usuário e não contém triggers técnicos
+        """
+        if msg["role"] != "user":
+            return False
+        
+        content = str(msg["content"])
+        return (CV_UPLOAD_TRIGGER_TEXT not in content and 
+                COMMAND_TRIGGER_TEXT not in content)
         
     def can_transition_to(self, target_phase: Phase) -> bool:
         """
@@ -143,20 +163,15 @@ class PhaseManager:
             return False
         
         # Conta pares de mensagens user-assistant (excluindo system e triggers técnicos)
-        user_messages = [
-            msg for msg in messages 
-            if msg["role"] == "user" 
-            and CV_UPLOAD_TRIGGER_TEXT not in str(msg["content"])
-            and COMMAND_TRIGGER_TEXT not in str(msg["content"])
-        ]
+        user_messages = [msg for msg in messages if self._is_user_message_non_trigger(msg)]
         
         assistant_messages = [
             msg for msg in messages 
             if msg["role"] == "assistant"
         ]
         
-        # Esperamos pelo menos MIN_DIAGNOSTIC_EXCHANGES respostas do usuário e da IA
-        return len(user_messages) >= MIN_DIAGNOSTIC_EXCHANGES and len(assistant_messages) >= MIN_DIAGNOSTIC_EXCHANGES
+        # Verifica se houve troca suficiente de mensagens (pelo menos MIN_DIAGNOSTIC_EXCHANGES pares)
+        return (min(len(user_messages), len(assistant_messages)) >= MIN_DIAGNOSTIC_EXCHANGES)
     
     def should_transition_to_execucao(self, last_user_message: str) -> bool:
         """
@@ -174,8 +189,7 @@ class PhaseManager:
             return False
         
         # Verifica se há trigger de execução na mensagem
-        execution_triggers = [COMMAND_TRIGGER_TEXT, COMMAND_OTIMIZADOR_TEXT, COMMAND_ETAPA_TEXT]
-        return any(trigger in last_user_message for trigger in execution_triggers)
+        return any(trigger in last_user_message for trigger in self._EXECUTION_TRIGGERS)
     
     def update_phase(self, cv_content: Any = None, messages: List[Dict] = None) -> Phase:
         """

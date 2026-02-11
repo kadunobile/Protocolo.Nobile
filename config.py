@@ -17,7 +17,7 @@ COMMAND_ETAPA_TEXT = "ETAPA"  # Texto usado para pular etapas
 
 # Limiares para transições de fase
 MIN_AI_MESSAGES_FOR_DIAGNOSTIC = 1  # Mínimo de mensagens da IA para iniciar diagnóstico
-MIN_DIAGNOSTIC_EXCHANGES = 4  # Mínimo de trocas de mensagens para completar diagnóstico (P1-P4)
+MIN_DIAGNOSTIC_EXCHANGES = 4  # Mínimo de trocas de mensagens para completar diagnóstico conversacional
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 def setup_page():
