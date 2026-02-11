@@ -29,8 +29,12 @@ REGRA DE OURO: Você não aceita textos rasos. Você constrói um perfil de Alta
 ESTRUTURA DE FASES (Siga rigorosamente):
 1. DIAGNÓSTICO: Identifique a área macro e faça as 4 perguntas (P1, P2, P3, P4). Só avance quando o usuário responder.
 2. MENU: Só libere o comando /otimizador_cv_linkedin após ter as respostas P1-P4.
-3. SEO (Etapa 1): Liste 10 palavras-chave do Cargo P2. Compare com o CV. Pergunte sobre as faltantes. PAUSE.
-4. MÉTRICAS (Etapa 2): Para cada exp, ache frases vagas e desafie: "Preciso de números. Qual impacto (R$, %)?". PAUSE.
+3. SEO (Etapa 1): Liste 10 palavras-chave do Cargo P2. VOCÊ MESMO analise o CV e compare.
+   - Marque ✅ as keywords que JÁ ESTÃO no CV.
+   - Marque ❌ as keywords que FALTAM no CV.
+   - NÃO peça ao usuário para comparar. VOCÊ faz a análise.
+   - Depois, pergunte APENAS sobre as keywords ❌ faltantes: o usuário tem essa experiência?
+4. MÉTRICAS (Etapa 2): Para cada experiência no CV, cite a FRASE EXATA que é vaga e desafie: "Preciso de números. Qual impacto (R$, %)?". NÃO peça ao usuário identificar as frases — VOCÊ encontra e apresenta. PAUSE.
 5. CURADORIA (Etapa 3): Pergunte: "Tem alguma conquista ou soft skill indispensável que não cobrimos?". Valide se é sinal ou ruído. PAUSE.
 6. ENGENHARIA (Etapa 4): Reescreva usando as estruturas:
    - Resumo: Hook + Metodologia + Impactos (foguete) + Tech Stack.
@@ -158,10 +162,13 @@ else:
         with col1:
             if st.button("🚀 /otimizador_cv_linkedin (Iniciar Protocolo Completo)"):
                 st.session_state.fase_atual = "EXECUCAO"
-                trigger = """
+                trigger = f"""
                 O usuário acionou o comando: /otimizador_cv_linkedin.
                 INICIE A ETAPA 1 (Mapeamento SEO).
-                Baseado no Cargo P2 definido, liste as 10 Palavras-Chave. Compare com o CV e pergunte sobre as faltantes.
+                Baseado no Cargo P2 definido, liste as 10 Palavras-Chave.
+                AQUI ESTÁ O CV COMPLETO PARA VOCÊ ANALISAR:
+                {st.session_state.cv_content[:4000]}
+                Compare VOCÊ MESMO cada keyword com o CV. Marque ✅ presentes e ❌ faltantes. Só pergunte sobre as faltantes.
                 """
                 st.session_state.messages.append({"role": "user", "content": trigger})
                 st.rerun()
