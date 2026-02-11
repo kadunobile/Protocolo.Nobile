@@ -93,7 +93,7 @@ class PhaseManager:
         Returns:
             bool: True if transition occurred
         """
-        if self.current_phase == Phase.DIAGNOSTICO:
+        if self.current_phase == Phase.DIAGNOSTICO and messages:
             # Count AI messages after the diagnostic phase started
             ai_count = 0
             for msg in messages:
@@ -117,7 +117,7 @@ class PhaseManager:
         Returns:
             bool: True if transition occurred
         """
-        if self.current_phase == Phase.DIAGNOSTICO_EM_ANDAMENTO:
+        if self.current_phase == Phase.DIAGNOSTICO_EM_ANDAMENTO and messages:
             pairs = self.count_user_ai_pairs(messages)
             
             # Transition after 4 or more user-AI pairs (excluding triggers)
