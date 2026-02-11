@@ -8,7 +8,9 @@ from typing import List, Dict, Any
 from config import (
     CV_UPLOAD_TRIGGER_TEXT,
     COMMAND_TRIGGER_TEXT,
-    MIN_AI_MESSAGES_FOR_DIAGNOSTIC_IN_PROGRESS,
+    COMMAND_OTIMIZADOR_TEXT,
+    COMMAND_ETAPA_TEXT,
+    MIN_AI_MESSAGES_FOR_DIAGNOSTIC,
     MIN_DIAGNOSTIC_EXCHANGES
 )
 
@@ -103,7 +105,7 @@ class PhaseManager:
         """
         Verifica se deve transitar de DIAGNOSTICO para DIAGNOSTICO_EM_ANDAMENTO.
         
-        Critério: A IA enviou pelo menos MIN_AI_MESSAGES_FOR_DIAGNOSTIC_IN_PROGRESS
+        Critério: A IA enviou pelo menos MIN_AI_MESSAGES_FOR_DIAGNOSTIC
         mensagens após o trigger inicial, indicando que o processo de diagnóstico foi iniciado.
         
         Args:
@@ -122,7 +124,7 @@ class PhaseManager:
         ]
         
         # Se a IA já enviou mensagens suficientes, o diagnóstico está em andamento
-        return len(ai_messages) >= MIN_AI_MESSAGES_FOR_DIAGNOSTIC_IN_PROGRESS
+        return len(ai_messages) >= MIN_AI_MESSAGES_FOR_DIAGNOSTIC
     
     def should_transition_to_menu(self, messages: List[Dict]) -> bool:
         """
@@ -140,10 +142,12 @@ class PhaseManager:
         if self.current_phase != Phase.DIAGNOSTICO_EM_ANDAMENTO:
             return False
         
-        # Conta pares de mensagens user-assistant (excluindo system e triggers)
+        # Conta pares de mensagens user-assistant (excluindo system e triggers técnicos)
         user_messages = [
             msg for msg in messages 
-            if msg["role"] == "user" and CV_UPLOAD_TRIGGER_TEXT not in str(msg["content"])
+            if msg["role"] == "user" 
+            and CV_UPLOAD_TRIGGER_TEXT not in str(msg["content"])
+            and COMMAND_TRIGGER_TEXT not in str(msg["content"])
         ]
         
         assistant_messages = [
@@ -170,7 +174,7 @@ class PhaseManager:
             return False
         
         # Verifica se há trigger de execução na mensagem
-        execution_triggers = [COMMAND_TRIGGER_TEXT, "/otimizador", "ETAPA"]
+        execution_triggers = [COMMAND_TRIGGER_TEXT, COMMAND_OTIMIZADOR_TEXT, COMMAND_ETAPA_TEXT]
         return any(trigger in last_user_message for trigger in execution_triggers)
     
     def update_phase(self, cv_content: Any = None, messages: List[Dict] = None) -> Phase:
