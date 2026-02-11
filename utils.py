@@ -18,5 +18,5 @@ def extract_text(file):
     try:
         with pdfplumber.open(file) as pdf:
             return "\n".join([p.extract_text() for p in pdf.pages if p.extract_text()])
-    except:
+    except Exception:
         return None
