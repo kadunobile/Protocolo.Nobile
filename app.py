@@ -50,7 +50,11 @@ FASE 3: EXECUÇÃO (QUANDO O USUÁRIO ESCOLHER NO MENU)
 IMPORTANTE: Mantenha o tom consultivo e estratégico.
 """
 
-# --- 3. FUNÇÕES ---
+# --- 3. CONSTANTES ---
+MAX_CV_TEXT_FOR_TRIGGER = 4000  # Máximo de caracteres do CV enviados no trigger inicial
+P4_DETECTION_KEYWORDS = ["P4", "Onde você mora", "localização"]  # Keywords para detectar a pergunta P4
+
+# --- 4. FUNÇÕES ---
 def extract_text(file):
     try:
         with pdfplumber.open(file) as pdf:
@@ -223,7 +227,7 @@ if not st.session_state.cv_content:
             st.session_state.ats_data = ats_result
 
             # Força o início do Diagnóstico
-            trigger = f"O USUÁRIO SUBIU O CV: {text[:4000]}... INICIE A FASE 1 (DIAGNÓSTICO) AGORA."
+            trigger = f"O USUÁRIO SUBIU O CV: {text[:MAX_CV_TEXT_FOR_TRIGGER]}... INICIE A FASE 1 (DIAGNÓSTICO) AGORA."
             st.session_state.messages.append({"role": "user", "content": trigger})
             reply = get_response(st.session_state.messages, api_key)
             st.session_state.messages.append({"role": "assistant", "content": reply})
@@ -239,7 +243,7 @@ else:
 
     # Lógica Automática para detectar liberação do MENU
     last_ai_msg = st.session_state.messages[-1]["content"] if st.session_state.messages else ""
-    if "P4" in last_ai_msg or "Onde você mora" in last_ai_msg:
+    if any(keyword in last_ai_msg for keyword in P4_DETECTION_KEYWORDS):
         st.session_state.fase_atual = "DIAGNOSTICO_EM_ANDAMENTO"
     elif st.session_state.fase_atual == "DIAGNOSTICO_EM_ANDAMENTO" and len(st.session_state.messages) > 4:
         st.session_state.fase_atual = "MENU"
