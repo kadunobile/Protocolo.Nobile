@@ -8,7 +8,6 @@ import streamlit as st
 MAX_CV_TEXT_FOR_TRIGGER = 4000  # Máximo de caracteres do CV enviados no trigger inicial
 MAX_CV_TEXT_LENGTH = 2000  # Máximo de caracteres do CV para extração de cargo
 MAX_CV_TEXT_LENGTH_ATS = 3000  # Máximo de caracteres do CV para cálculo ATS
-P4_DETECTION_KEYWORDS = ["P4", "Onde você mora", "localização"]  # Keywords para detectar a pergunta P4
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 def setup_page():
