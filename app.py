@@ -31,7 +31,7 @@ with st.sidebar:
     if env_api_key:
         # Se existe no .env, usar ela e mostrar mensagem informativa
         api_key = env_api_key
-        st.success("✅ API Key carregada do .env")
+        st.caption("🔑 API Key carregada do .env")
     else:
         # Se não existe no .env, pedir via input (fallback)
         api_key = st.text_input("OpenAI API Key", type="password")
