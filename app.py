@@ -1,221 +1,156 @@
 import streamlit as st
 import openai
 import pdfplumber
-import json
+import time
 
-# --- 1. CONFIGURAÇÃO VISUAL (DASHBOARD) ---
-st.set_page_config(page_title="Nobile Audit Report", page_icon="📊", layout="wide")
+# --- 1. CONFIGURAÇÃO VISUAL ---
+st.set_page_config(page_title="Nobile Career Strategy", page_icon="♟️", layout="wide")
 
 st.markdown("""
 <style>
     .stApp { background-color: #0E1117; color: #FAFAFA; }
-    .metric-container {
-        background-color: #1E1E1E; border: 1px solid #333; padding: 20px; 
-        border-radius: 8px; text-align: center; margin-bottom: 20px;
+    .stButton>button {
+        background-color: #238636;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 5px;
+        font-weight: bold;
     }
-    .metric-value { font-size: 2.5em; font-weight: bold; color: #4CAF50; }
-    .metric-label { font-size: 1em; color: #AAA; }
-    .alert-box {
-        padding: 15px; border-radius: 5px; margin: 10px 0; border-left: 5px solid;
-    }
-    .alert-red { background-color: #2e0b0b; border-color: #ff4b4b; }
-    .alert-green { background-color: #0e2e1b; border-color: #4CAF50; }
-    h1, h2, h3 { font-family: 'Arial', sans-serif; color: #E0E0E0; }
-    .stButton>button { width: 100%; border-radius: 5px; font-weight: bold; }
+    .stButton>button:hover { background-color: #2ea043; }
+    .stChatMessage[data-testid="user"] { background-color: #0d4a2b; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. LÓGICA DE ANÁLISE (Backend) ---
-class AuditEngine:
-    def __init__(self):
-        if 'report_data' not in st.session_state: st.session_state.report_data = None
-        if 'cv_text' not in st.session_state: st.session_state.cv_text = None
+# --- 2. O ROTEIRO MESTRE (SEU SCRIPT EXATO) ---
+SYSTEM_PROMPT = """
+ATUE COMO UM HEADHUNTER E ESTRATEGISTA DE CARREIRA (VERSÃO ELITE GLOBAL).
+Role: Você é um Headhunter Executivo Sênior, Especialista em ATS e LinkedIn Top Voice.
+Regra de Ouro: Você constrói um perfil de Alta Performance. Em cada etapa, você PAUSA, entrevista e valida.
 
-    def extract_text(self, file):
-        try:
-            with pdfplumber.open(file) as pdf:
-                return "\n".join([p.extract_text() for p in pdf.pages if p.extract_text()])
-        except Exception:
-            return None
+ESTRUTURA DE FASES (Siga rigorosamente):
 
-    def generate_report(self, cv_text, target_role, target_salary, api_key):
-        if not api_key: return None
-        client = openai.OpenAI(api_key=api_key)
-        
-        # Limit CV text to 3000 chars to stay within token limits and reduce API costs
-        MAX_CV_TEXT_LENGTH = 3000
-        
-        # Prompt Analítico (Gera JSON puro)
-        prompt = f"""
-        ATUE COMO: Auditor de RH e Especialista em ATS.
-        CONTEXTO:
-        - CV Texto: {cv_text[:MAX_CV_TEXT_LENGTH]}
-        - Cargo Alvo: {target_role}
-        - Pretensão Salarial: {target_salary}
-        
-        TAREFA (Retorne JSON):
-        1. **ATS_Score**: Calcule a % de palavras-chave do cargo presentes no CV (0-100).
-        2. **Senioridade_Percebida**: O texto soa como Junior, Pleno, Senior ou Executivo?
-        3. **Analise_Salarial**: O texto sustenta o salário de {target_salary}? (Sim/Não e motivo curto).
-        4. **Keywords_Missing**: Liste 5 palavras-chave críticas que faltam.
-        5. **Gaps**: Liste 3 erros técnicos no CV.
-        
-        FORMATO JSON OBRIGATÓRIO:
-        {{
-            "ats_score": 0,
-            "senioridade_detectada": "...",
-            "analise_salarial": {{ "compativel": true, "motivo": "..." }},
-            "keywords_missing": ["k1", "k2", "k3", "k4", "k5"],
-            "gaps": ["gap1", "gap2", "gap3"]
-        }}
-        """
-        try:
-            response = client.chat.completions.create(
-                model="gpt-4o",
-                messages=[{"role": "user", "content": prompt}],
-                response_format={"type": "json_object"},
-                temperature=0.2
-            )
-            return json.loads(response.choices[0].message.content)
-        except Exception as e:
-            st.error(f"Erro na análise: {e}")
-            return None
+FASE 1: DIAGNÓSTICO (O PRIMEIRO PASSO)
+- Leia o CV. Identifique a área macro.
+- Responda: "Entendi. Atuarei como especialista em [Área]. Para traçarmos a estratégia, responda:"
+- Pergunte P1 (Objetivo), P2 (Cargos Específicos), P3 (Pretensão Realista), P4 (Localização).
+- AGUARDE AS RESPOSTAS. NÃO AVANCE.
 
-    def rewrite_section(self, section_text, instruction, api_key):
-        client = openai.OpenAI(api_key=api_key)
+FASE 2: MENU
+- Só libere o Menu após ter as respostas P1-P4.
+
+FASE 3: EXECUÇÃO (QUANDO O USUÁRIO ESCOLHER NO MENU)
+- Etapa 1 (SEO): Liste 10 palavras-chave do Cargo P2. Compare com o CV. Pergunte sobre as faltantes. PAUSE.
+- Etapa 2 (Métricas): Para cada experiência, desafie: "Preciso de números. Qual impacto (R$, %)?". PAUSE.
+- Etapa 3 (Curadoria): Pergunte: "Tem alguma conquista indispensável que não cobrimos?". PAUSE.
+- Etapa 4 (Engenharia): Reescreva Resumo e Experiências usando estruturas de alta performance.
+- Etapa 5 (Arquivo Mestre): Gere o texto final.
+
+IMPORTANTE: Mantenha o tom consultivo e estratégico.
+"""
+
+# --- 3. FUNÇÕES ---
+def extract_text(file):
+    try:
+        with pdfplumber.open(file) as pdf:
+            return "\n".join([p.extract_text() for p in pdf.pages if p.extract_text()])
+    except: return None
+
+def get_response(messages, api_key):
+    if not api_key: return "⚠️ Insira a API Key na barra lateral."
+    client = openai.OpenAI(api_key=api_key)
+    try:
         response = client.chat.completions.create(
             model="gpt-4o",
-            messages=[
-                {"role": "system", "content": "Você é um redator de currículos de elite."},
-                {"role": "user", "content": f"Texto Original: {section_text}\nInstrução: {instruction}\nReescreva em Bullet Points executivos."}
-            ]
+            messages=messages,
+            temperature=0.5
         )
         return response.choices[0].message.content
+    except Exception as e:
+        return f"Erro na IA: {e}"
 
-# --- 3. INTERFACE (FRONTEND) ---
-engine = AuditEngine()
+# --- 4. CONTROLE DE ESTADO ---
+if "messages" not in st.session_state:
+    st.session_state.messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+if "cv_content" not in st.session_state: st.session_state.cv_content = None
+if "fase_atual" not in st.session_state: st.session_state.fase_atual = "UPLOAD"
 
+# --- 5. SIDEBAR ---
 with st.sidebar:
-    st.title("📊 Auditoria Nobile")
+    st.image("https://cdn-icons-png.flaticon.com/512/3048/3048127.png", width=60)
+    st.title("Nobile Strategy")
     api_key = st.text_input("OpenAI API Key", type="password")
-    st.divider()
-    target_role = st.text_input("Cargo Alvo", value="Diretor Comercial")
-    target_salary = st.text_input("Salário Alvo", value="R$ 25.000,00")
-    
-    if st.button("🔄 Resetar Tudo"):
-        st.session_state.report_data = None
-        st.session_state.cv_text = None
+
+    st.markdown("---")
+    if st.button("🔄 Reiniciar Sessão"):
+        for key in list(st.session_state.keys()): del st.session_state[key]
         st.rerun()
 
-st.title(f"Relatório de Viabilidade: {target_role}")
+# --- 6. INTERFACE PRINCIPAL ---
+st.title("Headhunter Elite Global AI")
 
-# FASE 1: UPLOAD E GERAÇÃO DO REPORT
-if not st.session_state.report_data:
-    uploaded_file = st.file_uploader("Carregar CV (PDF) para Auditoria", type="pdf")
-    
+# FASE 1: UPLOAD (Gatilho Inicial)
+if not st.session_state.cv_content:
+    uploaded_file = st.file_uploader("Suba seu CV (PDF)", type="pdf")
+
     if uploaded_file and api_key:
-        if st.button("🔍 GERAR RELATÓRIO TÉCNICO"):
-            with st.spinner("Auditando ATS, Senioridade e Salário..."):
-                text = engine.extract_text(uploaded_file)
-                st.session_state.cv_text = text
-                
-                report = engine.generate_report(text, target_role, target_salary, api_key)
-                if report:
-                    st.session_state.report_data = report
-                    st.rerun()
+        with st.spinner("Lendo perfil..."):
+            text = extract_text(uploaded_file)
+            st.session_state.cv_content = text
+            st.session_state.fase_atual = "DIAGNOSTICO"
 
-# FASE 2: O DASHBOARD (SEU REPORT)
+            # Força o início do Diagnóstico
+            trigger = f"O USUÁRIO SUBIU O CV: {text[:4000]}... INICIE A FASE 1 (DIAGNÓSTICO) AGORA."
+            st.session_state.messages.append({"role": "user", "content": trigger})
+            reply = get_response(st.session_state.messages, api_key)
+            st.session_state.messages.append({"role": "assistant", "content": reply})
+            st.rerun()
+
+# FASE 2: CHAT INTERATIVO
 else:
-    data = st.session_state.report_data
-    
-    # 2.1 - Métricas de Topo
-    c1, c2, c3 = st.columns(3)
-    
-    with c1:
-        # ATS Score
-        score = data.get('ats_score', 0)
-        color = "#4CAF50" if score > 70 else "#FF5252"
-        st.markdown(f"""
-        <div class="metric-container" style="border-color: {color};">
-            <div class="metric-value" style="color: {color};">{score}%</div>
-            <div class="metric-label">Score ATS Técnico</div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-    with c2:
-        # Análise Salarial
-        salario_data = data.get('analise_salarial', {})
-        salario_ok = salario_data.get('compativel', False)
-        senioridade = data.get('senioridade_detectada', 'N/A')
-        icon = "✅" if salario_ok else "⚠️"
-        st.markdown(f"""
-        <div class="metric-container">
-            <div class="metric-value" style="font-size: 1.5em; color: white;">{icon} {senioridade}</div>
-            <div class="metric-label">Senioridade Percebida</div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-    with c3:
-        # Palavras Chave
-        missing_kws = data.get('keywords_missing', [])
-        st.markdown(f"""
-        <div class="metric-container">
-            <div class="metric-value" style="font-size: 1.5em; color: #58A6FF;">{len(missing_kws)}</div>
-            <div class="metric-label">Keywords Faltantes</div>
-        </div>
-        """, unsafe_allow_html=True)
+    # Mostra histórico (ocultando prompts técnicos)
+    for msg in st.session_state.messages:
+        if msg["role"] != "system" and "O USUÁRIO SUBIU" not in str(msg["content"]) and "ACIONOU" not in str(msg["content"]):
+            with st.chat_message(msg["role"]):
+                st.markdown(msg["content"])
 
-    # 2.2 - Detalhamento (O Report Escrito)
-    col_a, col_b = st.columns([2, 1])
-    
-    with col_a:
-        st.subheader("📋 Diagnóstico Salarial")
-        motivo = salario_data.get('motivo', 'Sem dados')
-        if salario_ok:
-            st.success(f"**Compatível:** {motivo}")
-        else:
-            st.error(f"**Risco:** {motivo}")
-            
-        st.subheader("🔧 Gaps Técnicos Identificados")
-        gaps = data.get('gaps', [])
-        for gap in gaps:
-            st.warning(f"• {gap}")
+    # Lógica Automática para detectar liberação do MENU
+    last_ai_msg = st.session_state.messages[-1]["content"] if st.session_state.messages else ""
+    if "P4" in last_ai_msg or "Onde você mora" in last_ai_msg:
+        st.session_state.fase_atual = "DIAGNOSTICO_EM_ANDAMENTO"
+    elif st.session_state.fase_atual == "DIAGNOSTICO_EM_ANDAMENTO" and len(st.session_state.messages) > 4:
+        st.session_state.fase_atual = "MENU"
 
-    with col_b:
-        st.subheader("🔑 Keywords Ausentes")
-        for kw in missing_kws:
-            st.code(kw, language="text")
+    # INPUT DO USUÁRIO
+    user_input = st.chat_input("Sua resposta...")
 
-    st.divider()
+    # PROCESSAMENTO DE MENSAGEM
+    if user_input:
+        st.session_state.messages.append({"role": "user", "content": user_input})
+        st.rerun()
 
-    # FASE 3: FERRAMENTAS DE OTIMIZAÇÃO (A Solução)
-    st.header("🛠️ Menu de Otimização")
-    st.caption("Use as ferramentas abaixo para corrigir os problemas apontados no relatório.")
-    
-    tab1, tab2 = st.tabs(["Otimizar Experiência (Salário)", "Otimizar Keywords (ATS)"])
-    
-    with tab1:
-        st.write(f"**Problema:** Seu texto atual não justifica o salário de {target_salary}")
-        user_exp = st.text_area("Cole aqui a experiência que deseja blindar:", height=150)
-        roi_input = st.text_input("Qual foi o resultado numérico (ROI/KPI) dessa experiência?")
-        
-        if st.button("Reescrever para Nível Executivo"):
-            if user_exp and roi_input:
-                with st.spinner("Reescrevendo..."):
-                    instruction = f"O usuário quer ganhar {target_salary}. Reescreva focando em ROI: {roi_input}. Cargo: {target_role}."
-                    new_text = engine.rewrite_section(user_exp, instruction, api_key)
-                    st.markdown("### Versão Executiva:")
-                    st.code(new_text)
+    # RESPOSTA DA IA (Se a última msg for User, a IA responde sozinha)
+    if st.session_state.messages[-1]["role"] == "user":
+        with st.chat_message("assistant"):
+            with st.spinner("Headhunter analisando..."):
+                response = get_response(st.session_state.messages, api_key)
+                st.markdown(response)
+        st.session_state.messages.append({"role": "assistant", "content": response})
+        st.rerun()
 
-    with tab2:
-        st.write("**Problema:** Faltam palavras-chave para o robô.")
-        st.write(f"Keywords Alvo: {', '.join(missing_kws)}")
-        resumo_atual = st.text_area("Cole seu Resumo/Sobre atual:", height=100)
-        
-        if st.button("Injetar Keywords no Resumo"):
-            if resumo_atual:
-                with st.spinner("Otimizando SEO..."):
-                    instruction = f"Mantenha a essência, mas insira organicamente estas palavras: {', '.join(missing_kws)}."
-                    new_summary = engine.rewrite_section(resumo_atual, instruction, api_key)
-                    st.markdown("### Resumo Otimizado (ATS Ready):")
-                    st.code(new_summary)
+    # MENU DE COMANDOS (Aparece só depois do Diagnóstico)
+    if st.session_state.fase_atual in ["MENU", "EXECUCAO"] and st.session_state.messages[-1]["role"] == "assistant":
+        st.markdown("---")
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("🚀 /otimizador_cv_linkedin"):
+                st.session_state.fase_atual = "EXECUCAO"
+                trigger = "O usuário ACIONOU: /otimizador_cv_linkedin. INICIE A ETAPA 1 (SEO)."
+                st.session_state.messages.append({"role": "user", "content": trigger})
+                st.rerun()
+
+        with col2:
+            if st.button("📄 Pular para Arquivo Final"):
+                 trigger = "Pule para a ETAPA 5: ARQUIVO MESTRE."
+                 st.session_state.messages.append({"role": "user", "content": trigger})
+                 st.rerun()
