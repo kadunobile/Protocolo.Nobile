@@ -110,10 +110,15 @@ def calculate_ats_score(cv_text, target_role, api_key):
     - Cargo Alvo: {target_role}
 
     TAREFA (Retorne JSON):
-    1. **ATS_Score**: Calcule a % de palavras-chave do cargo presentes no CV (0-100).
-    2. **Keywords_Present**: Liste 5-10 palavras-chave PRESENTES no CV.
-    3. **Keywords_Missing**: Liste 5-10 palavras-chave críticas que FALTAM.
-    4. **Recomendacoes**: Liste 3 recomendações curtas para melhorar o score.
+    1. **ATS_Score**: Calcule DETERMINISTICAMENTE a % de palavras-chave do cargo presentes no CV (0-100).
+       - Identifique EXATAMENTE 15 palavras-chave críticas para o cargo {target_role}
+       - Conte QUANTAS dessas 15 palavras-chave aparecem no CV
+       - Score = (número de palavras presentes / 15) × 100, arredondado para o inteiro mais próximo
+    2. **Keywords_Present**: Liste entre 5-10 palavras-chave PRESENTES no CV (das 15 identificadas).
+    3. **Keywords_Missing**: Liste entre 5-10 palavras-chave críticas que FALTAM (das 15 identificadas).
+    4. **Recomendacoes**: Liste EXATAMENTE 3 recomendações curtas e objetivas para melhorar o score.
+
+    IMPORTANTE: Use critérios objetivos e consistentes. Para o mesmo CV e cargo, sempre retorne o mesmo score.
 
     FORMATO JSON OBRIGATÓRIO:
     {{
@@ -128,7 +133,8 @@ def calculate_ats_score(cv_text, target_role, api_key):
             model="gpt-4o",
             messages=[{"role": "user", "content": prompt}],
             response_format={"type": "json_object"},
-            temperature=0.2
+            temperature=0.0,
+            seed=42
         )
         return json.loads(response.choices[0].message.content)
     except Exception as e:
