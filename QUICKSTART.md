@@ -88,7 +88,8 @@ Abra: http://localhost:8501
 ### Alterar o Modelo GPT:
 Edite `config.py`:
 ```python
-OPENAI_MODEL = "gpt-4"  # ou "gpt-4-turbo" ou "gpt-3.5-turbo"
+OPENAI_MODEL = "gpt-4"  # ou "gpt-3.5-turbo"
+# Consulte a documentação da OpenAI para modelos disponíveis
 ```
 
 ### Ajustar Requisito de Salário:

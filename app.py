@@ -135,7 +135,7 @@ with st.sidebar:
     
     # Reset button
     if st.button("🔄 Resetar Sessão"):
-        for key in st.session_state.keys():
+        for key in list(st.session_state.keys()):
             del st.session_state[key]
         st.rerun()
 
@@ -241,7 +241,7 @@ elif selected_command == "ats_score":
     st.header("📊 Calculadora de Score ATS")
     st.markdown("Analise seu currículo e obtenha um score ATS profissional.")
     
-    if not st.session_state[config.SESSION_KEYS["pdf_uploaded"]]:
+    if st.session_state[config.SESSION_KEYS["pdf_uploaded"]] is not True:
         st.warning("⚠️ Por favor, faça upload do seu PDF primeiro.")
     else:
         if st.button("📈 Calcular Score ATS"):

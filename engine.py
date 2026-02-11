@@ -2,7 +2,7 @@
 Engine Module for Nobile Career Protocol
 Handles all OpenAI GPT integration and business logic
 """
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, Any
 from openai import OpenAI
 import config
 from prompts import PromptTemplates
@@ -61,7 +61,7 @@ class CareerEngine:
         system_message = "Você é um consultor executivo de carreira altamente experiente."
         return self._call_gpt(prompt, system_message)
     
-    def calculate_ats_score(self, resume_text: str) -> Dict[str, any]:
+    def calculate_ats_score(self, resume_text: str) -> Dict[str, Any]:
         """
         Calculate ATS score for resume
         
@@ -157,7 +157,7 @@ class CareerEngine:
         system_message = "Você é um consultor estratégico de carreira executiva."
         return self._call_gpt(prompt, system_message)
     
-    def validate_executive_profile(self, position: str, salary: float) -> Dict[str, any]:
+    def validate_executive_profile(self, position: str, salary: float) -> Dict[str, Any]:
         """
         Validate if profile meets executive criteria
         
