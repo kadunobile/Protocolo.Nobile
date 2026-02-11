@@ -9,6 +9,14 @@ MAX_CV_TEXT_FOR_TRIGGER = 4000  # Máximo de caracteres do CV enviados no trigge
 MAX_CV_TEXT_LENGTH = 2000  # Máximo de caracteres do CV para extração de cargo
 MAX_CV_TEXT_LENGTH_ATS = 3000  # Máximo de caracteres do CV para cálculo ATS
 
+# Constantes para detecção de transição de fase
+CV_UPLOAD_TRIGGER_TEXT = "O USUÁRIO SUBIU"  # Texto usado no trigger de upload de CV
+COMMAND_TRIGGER_TEXT = "ACIONOU:"  # Texto usado quando comando é acionado
+
+# Limiares para transições de fase
+MIN_AI_MESSAGES_FOR_DIAGNOSTIC_IN_PROGRESS = 1  # Mínimo de mensagens da IA para iniciar diagnóstico
+MIN_DIAGNOSTIC_EXCHANGES = 4  # Mínimo de trocas de mensagens para completar diagnóstico (P1-P4)
+
 # --- CONFIGURAÇÃO DA PÁGINA ---
 def setup_page():
     """Configura a página Streamlit"""
