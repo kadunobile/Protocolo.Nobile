@@ -1,10 +1,11 @@
 import streamlit as st
 
 # Importar módulos do projeto
-from config import setup_page, apply_custom_css, MAX_CV_TEXT_FOR_TRIGGER, P4_DETECTION_KEYWORDS
+from config import setup_page, apply_custom_css, MAX_CV_TEXT_FOR_TRIGGER
 from prompts import SYSTEM_PROMPT, PromptTemplates
 from utils import extract_text
 from engine import get_response, extract_role_from_cv, calculate_ats_score
+from phase_manager import PhaseManager
 
 # --- 1. CONFIGURAÇÃO VISUAL ---
 setup_page()
@@ -17,6 +18,7 @@ if "cv_content" not in st.session_state: st.session_state.cv_content = None
 if "fase_atual" not in st.session_state: st.session_state.fase_atual = "UPLOAD"
 if "ats_data" not in st.session_state: st.session_state.ats_data = None
 if "target_role" not in st.session_state: st.session_state.target_role = ""
+if "phase_manager" not in st.session_state: st.session_state.phase_manager = PhaseManager()
 
 # --- 5. SIDEBAR ---
 with st.sidebar:
@@ -87,7 +89,10 @@ if not st.session_state.cv_content:
         with st.spinner("Lendo perfil e calculando ATS Score..."):
             text = extract_text(uploaded_file)
             st.session_state.cv_content = text
-            st.session_state.fase_atual = "DIAGNOSTICO"
+            
+            # Use PhaseManager for phase transition
+            st.session_state.phase_manager.transition_to_diagnostico(text)
+            st.session_state.fase_atual = st.session_state.phase_manager.get_phase_value()
 
             # Extrai o cargo do CV automaticamente
             detected_role = extract_role_from_cv(text, api_key)
@@ -112,12 +117,12 @@ else:
             with st.chat_message(msg["role"]):
                 st.markdown(msg["content"])
 
-    # Lógica Automática para detectar liberação do MENU
-    last_ai_msg = st.session_state.messages[-1]["content"] if st.session_state.messages else ""
-    if any(keyword in last_ai_msg for keyword in P4_DETECTION_KEYWORDS):
-        st.session_state.fase_atual = "DIAGNOSTICO_EM_ANDAMENTO"
-    elif st.session_state.fase_atual == "DIAGNOSTICO_EM_ANDAMENTO" and len(st.session_state.messages) > 4:
-        st.session_state.fase_atual = "MENU"
+    # Update phase using PhaseManager (message-based, not keyword-based)
+    st.session_state.phase_manager.update_phase(
+        cv_content=st.session_state.cv_content,
+        messages=st.session_state.messages
+    )
+    st.session_state.fase_atual = st.session_state.phase_manager.get_phase_value()
 
     # INPUT DO USUÁRIO
     user_input = st.chat_input("Sua resposta...")
@@ -142,13 +147,16 @@ else:
         col1, col2 = st.columns(2)
         with col1:
             if st.button("🚀 /otimizador_cv_linkedin"):
-                st.session_state.fase_atual = "EXECUCAO"
                 trigger = PromptTemplates.optimizer_trigger()
                 st.session_state.messages.append({"role": "user", "content": trigger})
+                st.session_state.phase_manager.transition_to_execucao(trigger)
+                st.session_state.fase_atual = st.session_state.phase_manager.get_phase_value()
                 st.rerun()
 
         with col2:
             if st.button("📄 Pular para Arquivo Final"):
                  trigger = PromptTemplates.skip_to_final_trigger()
                  st.session_state.messages.append({"role": "user", "content": trigger})
+                 st.session_state.phase_manager.transition_to_execucao(trigger)
+                 st.session_state.fase_atual = st.session_state.phase_manager.get_phase_value()
                  st.rerun()

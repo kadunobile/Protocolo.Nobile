@@ -8,7 +8,10 @@ import streamlit as st
 MAX_CV_TEXT_FOR_TRIGGER = 4000  # Máximo de caracteres do CV enviados no trigger inicial
 MAX_CV_TEXT_LENGTH = 2000  # Máximo de caracteres do CV para extração de cargo
 MAX_CV_TEXT_LENGTH_ATS = 3000  # Máximo de caracteres do CV para cálculo ATS
-P4_DETECTION_KEYWORDS = ["P4", "Onde você mora", "localização"]  # Keywords para detectar a pergunta P4
+
+# --- CONSTANTES FSM (Finite State Machine) ---
+FSM_MIN_MESSAGE_PAIRS_FOR_MENU = 4  # Mínimo de pares user-AI para liberar menu
+FSM_MIN_AI_MESSAGES_FOR_DIAGNOSTICO_EM_ANDAMENTO = 1  # Mínimo de mensagens AI após diagnóstico
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 def setup_page():
